@@ -29,6 +29,7 @@ int hamming_distance(unsigned char *a, unsigned char *b, int len) {
 int main(int argc, char *argv[]) {
   char inbuf[256];
   unsigned char data[32768], *dst;
+  unsigned char testbuf[32768];
   int i, j, len, add;
   //printf("hamming distance: %d\n", hamming_distance("this is a test", "wokka wokka!!!", 14));
 
@@ -57,7 +58,7 @@ int main(int argc, char *argv[]) {
     //    printf("keysize; %d, hamming distance: %f\n", i, keysize[i]);
   }
 
-#define NUM_BEST 4
+#define NUM_BEST 1
 
   int bestsizes[NUM_BEST];
 
@@ -72,9 +73,40 @@ int main(int argc, char *argv[]) {
     }
     bestsizes[i] = key;
     keysize[key] = 0;
-    printf("bestkey: %d, distance: %f\n", key, min);
+    //printf("bestkey: %d, distance: %f\n", key, min);
   }
-  
+
+  int size;
+  unsigned char *s, *d;
+
+  unsigned char test_key[50];
+  double rate;
+
+  // test keysizes
+  for(i = 0; i < NUM_BEST; i++) {
+    size = bestsizes[i];
+    //printf("Testing keysize: %d\n", size);
+    
+    for(j = 0; j < size; j++) {
+      s = data + j;
+      d = testbuf;
+
+      while(s - data < len) {
+        *d++ = *s;
+        s += size;
+      }
+      // find best XOR key on testbuf
+      test_key[j] = find_xor_key(testbuf, d-testbuf, &rate);
+      //printf("best xor key: %02x, rate: %f\n", test_key[j], rate);
+    }
+    memcpy(testbuf, data, len);
+    xor_encrypt(testbuf, test_key, len, size);
+    
+    strip_terminate(testbuf, len);
+    printf("%s\n", testbuf);
+    
+  }
+  return 0;
 }
     
   

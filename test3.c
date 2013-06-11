@@ -64,4 +64,5 @@ int main(int argc, char *argv[]) {
     testbuf[len] = '\0';
     printf("message: %s\n", testbuf);
   }
+  return 0;
 }

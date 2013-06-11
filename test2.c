@@ -56,4 +56,6 @@ int main(int argc, char *argv[]) {
   hexencode(res, outbuf, len);
   outbuf[2*len] = '\0';
   printf("%s\n", outbuf);
+
+  return 0;
 }

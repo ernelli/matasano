@@ -37,18 +37,36 @@ static void init() {
 //   s0     s0  s1     s1  s2     s2
 // 765432 | 10 7654 | 3210 76 | 543210
 
-void base64encode(const unsigned char *s, int len, char *d) {
+int base64encode(const unsigned char *s, int len, char *d) {
   init();
+  char *d0 = d;
   
   while(len >= 3) {
-
     d[0] = inttob64[s[0] >> 2];
     d[1] = inttob64[( (s[0] << 4) | (s[1] >> 4) ) & 0x3f];
     d[2] = inttob64[( (s[1] << 2) | (s[2] >> 6) ) & 0x3f];
     d[3] = inttob64[ s[2] & 0x3f];
    
     len -= 3;
+    s += 3;
+    d += 4;
   }
+
+  if(len == 2) {
+    d[0] = inttob64[s[0] >> 2];
+    d[1] = inttob64[( (s[0] << 4) | (s[1] >> 4) ) & 0x3f];
+    d[2] = inttob64[(s[1] << 2) &0x3f];
+    d[3] = '=';
+    d += 4;
+  } else if(len == 1) {
+    d[0] = inttob64[s[0] >> 2];
+    d[1] = inttob64[(s[0] << 4) & 0x3f];
+    d[2] = '=';
+    d[3] = '=';
+    d += 4;
+  }
+
+  return d-d0;
 }
 
 //   s0     s1     s2     s3
@@ -78,11 +96,14 @@ int base64decode(const char *s, int len, unsigned char *d) {
 
 #define hex2int(c) ((c >= '0' && c <= '9') ? c - '0' : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : (c >= 'a' && c <= 'f') ? c - 'a' + 10: 0)
 
-void hexdecode(const char *s, unsigned char *d) {
-  while(*s && *(s+1)) {
+int hexdecode(const char *s, unsigned char *d) {
+  unsigned char *d0 = d;
+  
+  while(s[0] && s[1]) {
     *d++ = 16*hex2int(s[0]) + hex2int(s[1]);
     s+=2;
   }
+  return d-d0;
 }
 
 #define int2hex(n) ( (n) >= 10 ? 'a' + (n) - 10 : '0' + (n))

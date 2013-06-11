@@ -136,3 +136,100 @@ double rate_text(const unsigned char *s, int len, int dump) {
 
   return v*xcorr(rel_freq, freq_table, 26);
 }
+
+double rate_text_key(const unsigned char *s, int len, unsigned char key) {
+  int i, N = 0, n = 0, v = 0, c, freq[26];
+  double rel_freq[26];
+
+  if(!init_done) {
+    init();
+    init_done = 1;
+  }
+  
+  memset(freq, 0, sizeof(freq));
+  while(N < len) {
+    N++;
+    
+    c = *s ^ key;
+
+    if(isalpha(c)) {
+      c = tolower(c);
+
+      if(c >= 'a' && c <= 'z') {
+        freq[c - 'a']++;
+        n++;
+        v++;
+      }
+    } else {
+      if(c == ' ') {
+        v++;
+      }
+    }
+
+    s++;
+  }
+
+  if(n) {
+    for(i = 0; i < 26; i++) {
+      rel_freq[i] = (double)freq[i] / (double)n;
+    }
+  } else {
+    memset(rel_freq, 0, sizeof(rel_freq));
+  }
+
+  //  printf("xcorr: %f\n", xcorr(rel_freq, freq_table, 26));
+  //  printf("ref1: %f\n", xcorr(freq_table, freq_table, 26));
+  //  printf("ref2: %f\n", xcorr(rel_freq, rel_freq, 26));
+
+  return v*xcorr(rel_freq, freq_table, 26);
+}
+
+
+unsigned char find_xor_key(unsigned char *s, int len, double *best_rate) {
+  int i;
+  double score[256];
+
+  memset(score, 0, sizeof(score));
+
+  for(i = 0; i < 256; i++) {
+    score[i] = rate_text_key(s, len, i);
+  }
+
+  double maxs = score[0];
+  int xor = 0;
+  
+  for(i = 0; i < 256; i++) {
+    if(score[i] > maxs) {
+      maxs = score[i];
+      xor = i;
+    }
+  }
+
+  if(best_rate) {
+    *best_rate = maxs;
+  }
+
+  return xor;
+}
+
+void xor_encrypt(unsigned char *data, const unsigned char *key, int data_len, int key_len) {
+  int i = 0;
+
+  while(data_len--) {
+    *data++ ^= key[i++];
+    if(i >= key_len) {
+      i = 0;
+    }
+  }
+}
+
+void strip_terminate(char *data, int len) {
+  int i;
+
+  data[len] = '\0';
+  for(i = 0; i < len; i++) {
+    if(!isprint(data[i])) {
+      data[i] = '.';
+    }
+  }
+}
