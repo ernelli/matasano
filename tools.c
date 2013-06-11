@@ -346,6 +346,23 @@ void xor_encrypt(unsigned char *data, const unsigned char *key, int data_len, in
   }
 }
 
+int add_padding(unsigned char *data, int len, int blocklen) {
+  int i = len, add;
+  unsigned char *d, *e;
+
+  add = blocklen - len % blocklen;
+
+  d = data + len;
+  e = d + add;
+
+
+  while(d < e) {
+    *d++ = add;
+  }
+
+  return d - data;
+}
+
 void strip_terminate(char *data, int len) {
   int i;
 
@@ -365,7 +382,7 @@ void strip_padding(char *data, int len) {
 }
 
 
-void hexdump(unsigned char *data, int len) {
+void hexdump(const unsigned char *data, int len) {
   int i;
   char line[60], *d;
   int m,a;
@@ -672,6 +689,64 @@ void aes_ecb_decrypt(unsigned char *block, int len, unsigned char *key, int key_
   
   while(len >= 16) {
     AES_Decrypt(block, expanded_key, ks);
+    len -= 16;
+    block += 16;
+  }
+}
+
+void aes_cbc_encrypt(unsigned char *block, int len, unsigned char *key, int key_len, unsigned char *iv) {
+  unsigned char expanded_key[16*(14+1)];
+  int i, ks;
+
+  if(!AES_init_done) {
+    AES_init();
+    AES_init_done = 1;
+  }
+
+  memcpy(expanded_key, key, key_len);
+  ks = AES_ExpandKey(expanded_key, key_len);
+  
+  while(len >= 16) {
+
+    for(i = 0; i < 16; i++) {
+      block[i] ^= iv[i];
+    }
+
+    AES_Encrypt(block, expanded_key, ks);
+    
+    iv = block;
+
+    len -= 16;
+    block += 16;
+  }
+
+}
+
+void aes_cbc_decrypt(unsigned char *block, int len, unsigned char *key, int key_len, unsigned char *iv) {
+  unsigned char expanded_key[16*(14+1)], iv0[16], iv1[16];
+  int i, ks;
+
+  if(!AES_init_done) {
+    AES_init();
+    AES_init_done = 1;
+  }
+
+  memcpy(expanded_key, key, key_len);
+
+  ks = AES_ExpandKey(expanded_key, key_len);
+
+  memcpy(iv1, iv, 16);
+  
+  while(len >= 16) {
+    memcpy(iv0, iv1, 16);
+    memcpy(iv1, block, 16);
+
+    AES_Decrypt(block, expanded_key, ks);
+
+    for(i = 0; i < 16; i++) {
+      block[i] ^= iv0[i];
+    }
+
     len -= 16;
     block += 16;
   }
