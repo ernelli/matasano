@@ -16,4 +16,12 @@ void xor_encrypt(unsigned char *data, const unsigned char *key, int data_len, in
 void strip_terminate(char *data, int len);
 void hexdump(const unsigned char *data, int len);
 
+void aes_ecb_encrypt(unsigned char *block, int len, unsigned char *key, int key_len);
+void aes_ecb_decrypt(unsigned char *block, int len, unsigned char *key, int key_len);
+void aes_cbc_encrypt(unsigned char *block, int len, unsigned char *key, int key_len, unsigned char *iv);
+void aes_cbc_decrypt(unsigned char *block, int len, unsigned char *key, int key_len, unsigned char *iv);
+
+void seed_random(const unsigned char *seed, int len);
+void random_bytes(unsigned char *data, int len);
+
 #endif

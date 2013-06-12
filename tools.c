@@ -751,3 +751,64 @@ void aes_cbc_decrypt(unsigned char *block, int len, unsigned char *key, int key_
     block += 16;
   }
 }
+
+// AES in counter mode as pseudorandom source
+
+static unsigned char random_expanded_key[16*(14+1)];
+static int random_ks;
+static unsigned int random_counter[4]; // 128 bit counter
+static unsigned char random_nonce[16]; // 128 bit nonce
+
+void seed_random(const unsigned char *seed, int len) {
+  if(len < 32) {
+    fprintf(stderr, "seed data to small, 32 bytes needed, got: %d\n", len);
+    exit(1);
+  }
+
+  memcpy(random_expanded_key, seed, 16);
+  random_ks = AES_ExpandKey(random_expanded_key, 16);
+
+  memcpy(random_nonce, seed+16, 16);
+  random_counter[0] = 1;
+  random_counter[1] = 0;
+  random_counter[2] = 0;
+  random_counter[3] = 0;
+}
+
+void random_bytes(unsigned char *data, int len) {
+  int i;
+  unsigned char buffer[16];
+  unsigned char seed[32];
+  struct timeval tv;
+
+  if(!random_ks) {
+    memcpy(seed, "sdvjhrGHWenI gnERuighnER hWEN vn", 32);
+    gettimeofday(&tv, NULL);
+    memcpy(seed, &tv.tv_usec, sizeof(tv.tv_usec));
+    seed_random(seed, 32);
+  }
+
+  while(len > 0) {
+    
+    // increment counter
+    i = 0;
+    while(i < 4) {
+      random_counter[i]++;
+      if(random_counter[i]) {
+        break;
+      }
+      i++;
+    }
+    
+    memcpy(buffer, random_counter, 16);
+    for(i = 0; i < 16; i++) {
+      buffer[i] ^= random_nonce[i];
+    }
+    
+    AES_Encrypt(buffer, random_expanded_key, random_ks);
+    
+    memcpy(data, buffer, len > 16 ? 16 : len);
+    data += 16;
+    len -= 16;
+  }
+}
