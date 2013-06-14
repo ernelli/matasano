@@ -2,20 +2,23 @@
 #include<string.h>
 #include"tools.h"
 
+int encryption_oracle(const unsigned char *in, int len, unsigned char *outbuff, int outlen);
+
 int main(int argc, char *argv[]) {
-  char inbuf[256];
-  unsigned char *dst, data[32768];
-  char hex[256];
-  int add, len;
-  const char *seed = "jallapelle123skcsdkfsrdvh dshvrkgkvhsdk v d";
+  char *testdata = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  unsigned char ciphertext[256];
 
-  //seed_random(seed, strlen(seed));
+  int len;
 
-  random_bytes(data, 100);
+  len = strlen(testdata);
 
-  hexencode(data, 100, hex);
-  hex[200] = '\0';
-  printf("%s\n", hex);
+  len = encryption_oracle(testdata, len, ciphertext, sizeof(ciphertext));
+
+  if(detect_ecb(ciphertext, len, 16)) {
+    printf("ECB\n");
+  } else {
+    printf("CBC\n");
+  }
 
   return 0;
 }

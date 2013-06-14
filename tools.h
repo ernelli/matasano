@@ -23,5 +23,5 @@ void aes_cbc_decrypt(unsigned char *block, int len, unsigned char *key, int key_
 
 void seed_random(const unsigned char *seed, int len);
 void random_bytes(unsigned char *data, int len);
-
+int detect_ecb(unsigned char *indata, int len, int blocklen);
 #endif

@@ -58,5 +58,5 @@ test9: test9.o tools.o
 test10: test10.o tools.o
 	gcc -o test10 test10.o tools.o
 
-test11: test11.o tools.o
-	gcc -o test11 test11.o tools.o
+test11: test11.o tools.o oracle.o
+	gcc -o test11 test11.o tools.o oracle.o

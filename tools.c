@@ -812,3 +812,21 @@ void random_bytes(unsigned char *data, int len) {
     len -= 16;
   }
 }
+
+int detect_ecb(unsigned char *data, int len, int blocklen) {
+  int i, j, k;
+
+  for(i = 0; i <= len - blocklen; i+= blocklen) {
+    for(j = i+blocklen; j <= len - blocklen; j += blocklen) {
+      for(k = 0; k < blocklen; k++) {
+        if(data[i+k] != data[j+k]) {
+          break;
+        }
+      }
+      if(k >= blocklen) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
