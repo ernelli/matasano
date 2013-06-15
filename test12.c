@@ -5,7 +5,7 @@
 int encryption_oracle_ecb(const unsigned char *in, int len, unsigned char *outbuff, int outlen);
 
 int main(int argc, char *argv[]) {
-  char *testdata = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  unsigned char *testdata = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   unsigned char testbuff[256];
 
   unsigned char ciphertext[256];
@@ -50,38 +50,86 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  printf("ECB detected, decrypting secret data...\n");
-
-  k = 0;
-  for(i = 15; i >=0; i--) {
-    // encode first ECB block with known data + part of ciphertext
-    len = encryption_oracle_ecb(testdata, i, ciphertext, sizeof(ciphertext));
-
-    memcpy(testblock0, ciphertext, 16);
-
-    //printf("testblock0:\n");
-    //hexdump(testblock0, 16);
-
-    memcpy(testblock1, testdata, i);
-    memcpy(testblock1+i, plaintext, k);
-    
-    //find the next character
-    for(j = 0; j < 256; j++) {
-      testblock1[15] = j;
-      
-      encryption_oracle_ecb(testblock1, 16, ciphertext, sizeof(ciphertext));
-      if(!memcmp(testblock0, ciphertext, 16)) { // found next plaintext
-        plaintext[k++] = j;
-        break;
-      }
-    }
-    if(j == 256) {
-      printf("Failed to find plaintext character at index: %d!\n", k);
-      return 1;
+  int plain_len = encryption_oracle_ecb(testdata, 0, ciphertext, sizeof(ciphertext));
+  for(i = 0; i < 15; i++) {
+    if(plain_len != encryption_oracle_ecb(testdata, i, ciphertext, sizeof(ciphertext))) {
+      plain_len = plain_len - 16 + i;
+      break;
     }
   }
+  printf("ECB detected, decrypting secret %d bytes data...\n", plain_len);
 
-  printf("found plaintext: %.16s\n", plaintext);
+  // use 'aaaaaaaaaaaaaaaa' initially as testdata for block 0, 
+  // replace with plaintext in subsequent blocks
+
+  int block_start = 0;
+  k = 0;
+  
+  //  b0               b1               b2               b_n
+  //  aaaaaaaaaaaaaaaa cccccccccccccccc CCCCCCCCCCCCCCCC pppppppppppppppp
+
+
+  //  b0               b1               b2
+  //  aaaaaaaaaaaaaaac cccccccccccccccC cccccccccccccccp ppppppppppppppp
+
+  do {
+
+    for(i = 15; i >=0; i--) {
+      // encode first ECB block with known data + part of ciphertext, also ensure that we get ciphertext shifted 1-15 bytes left
+      len = encryption_oracle_ecb(testdata, i, ciphertext, sizeof(ciphertext));
+      
+      //printf("cipherlen %d, start at: %d, block_offset: %d\n", len, block_start, i);
+
+      memcpy(testblock0, ciphertext+block_start, 16);
+      
+      //printf("testblock0:\n");
+      //hexdump(testblock0, 16);
+      
+      if(k < 16){
+        memcpy(testblock1, testdata, i);
+        memcpy(testblock1+i, plaintext, k);
+      } else {
+        memcpy(testblock1, plaintext + k - 15, 16);
+      }
+
+      testblock1[15] = '\0';
+      
+      //printf("testblock1, i=%d\n", i);
+      //hexdump(testblock1, 16);
+      
+      //find the next character
+      for(j = 0; j < 256; j++) {
+        testblock1[15] = j;
+        
+        encryption_oracle_ecb(testblock1, 16, ciphertext, sizeof(ciphertext));
+        if(!memcmp(testblock0, ciphertext, 16)) { // found next plaintext
+          plaintext[k++] = j;
+          //printf("found plaintext char: %02x at %d\n", j, k);
+          break;
+        }
+      }
+      if(j == 256) {
+        //printf("Failed to find plaintext character at index: %d!\n", k);
+        break;
+      }
+      
+      if(k >= plain_len) {
+        break;
+      }
+
+    }
+
+    //printf("found plaintext: %.16s\n", plaintext+block_start);
+    
+    block_start += 16;
+    
+    //printf("decrypted block %d\n", block_start / 16);
+
+  } while(block_start < len);
+
+  plaintext[k] = '\0';
+  printf("Found %d bytes plaintext:\n%s\n", k, plaintext);
+  //hexdump(plaintext, k);
 
   return 0;
 }
