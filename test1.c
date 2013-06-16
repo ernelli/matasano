@@ -1,7 +1,7 @@
 #include<stdio.h>
 #include<string.h>
 
-#include "base64.h"
+#include "tools.h"
 
 int main(int argc, char *argv[]) {
   char inbuf[256];

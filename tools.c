@@ -830,3 +830,123 @@ int detect_ecb(unsigned char *data, int len, int blocklen) {
   }
   return 0;
 }
+
+char *append(char *d, const char *s, char *e) {
+  while(*s && d < e) {
+    *d++ = *s++;
+  }
+  if(d < e) {
+    *d = '\0';
+  } else {
+    *(d-1) = '\0';
+  }
+  return d;
+}
+
+int kv_parse(const char *in, char *out, int len) {
+  char *end = out+len;
+  char *separator = "";
+  int val;
+
+  out = append(out, "{\n  ", end);
+
+  while(*in) {
+    out = append(out, separator, end);
+
+    while(*in && *in != '=' && out < end) {
+      *out++ = *in++;
+    }
+    // skip =
+    in++;
+    if(sscanf(in, "%d", &val) == 1) {
+      out += snprintf(out, end-out, ": %d", val);
+      while(*in && *in != '&')
+	in++;
+    } else {
+      out = append(out, ": \'", end);
+      while(*in && *in != '&' && out < end) {
+	*out++ = *in++;
+      }
+      out = append(out, "\'", end);
+    }
+    //skip &
+    if(*in) {
+      in++;
+    }
+    separator = ",\n  ";
+  }
+
+  out = append(out, "\n}\n", end);
+
+  //printf("kv_parse, buff ok: %d, out: %p, end: %p\n", out < end, out, end);
+
+
+  return out < end;
+}
+
+int profile_for(const char *email, char *out, int len) {
+  char *end = out+len;
+
+out = append(out, "email=", end);
+
+  while(*email && out < end) {
+    if(*email != '&' && *email != '=') {
+      *out++ = *email++;
+    } else {
+      // skip illegal chars
+      email++;
+    }
+  }
+  out = append(out, "&uid=10&role=user", end);
+
+  return (out < end);
+}
+
+static unsigned char profile_key[16];
+static int profile_init = 0;
+
+int encrypt_profile(const char *email, char *data, int len) {
+  if(!profile_init) {
+    random_bytes(profile_key, sizeof(profile_key));
+    profile_init = 1;
+  }
+
+  if(!profile_for(email, data, len)) {
+    fprintf(stderr, "Failed to generate profile, buffer to small\n");
+    exit(1);
+  }
+  
+  len = add_padding(data, strlen(data), 16);
+  aes_ecb_encrypt(data, len, profile_key, sizeof(profile_key));
+  return len;
+}
+
+void decrypt_profile(unsigned char *data, int len, char *profile, int size) {
+  unsigned char *end;
+  int pad = 0;
+  aes_ecb_decrypt(data, len, profile_key, sizeof(profile_key));
+  end = data+len;
+
+  while(*(end-1) && *(end-1) <= 16) {
+    end--;
+    if(!pad) {
+      pad = *end;
+    } else {
+      if(pad != *end) {
+	fprintf(stderr, "Invalid encrypted profile\n");
+	exit(1);
+      }
+    }
+    *end = 0;
+  }
+
+  if( (data + len) - end != pad) {
+    fprintf(stderr, "PL Invalid encrypted profile\n");
+    exit(1);
+  }
+
+  if(!kv_parse(data, profile, size)) {
+    fprintf(stderr, "PE Invalid encrypted profile");
+    exit(1);
+  }
+}
