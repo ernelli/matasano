@@ -84,3 +84,42 @@ int encryption_oracle_ecb(const unsigned char *in, int len, unsigned char *outbu
 
   return len;
 }
+
+int encryption_oracle_ecb_random_prefix(const unsigned char *in, int len, unsigned char *outbuff, int outlen) {
+  int i, j, I;
+
+  unsigned char prefix_len_s[1];
+  int prefix_len;
+  
+  if(len + o_data_len > outlen) {
+    fprintf(stderr, "encryption_oracle_ecb failed, outbuff size (%d) too small, %d bytes needed\n", outlen, len+o_data_len);
+    exit(1);
+  }
+  
+  if(!o_init) {
+    random_bytes(o_key, 16);
+    o_data_len = base64decode(o_data_b64, strlen(o_data_b64), o_data);
+    o_init = 1;
+  }
+  
+  random_bytes(prefix_len_s, 1);
+  prefix_len = (int)prefix_len_s[0];
+
+  if(len + prefix_len + o_data_len > outlen) {
+    fprintf(stderr, "encryption_oracle_ecb failed, outbuff size (%d) too small, %d bytes needed\n", outlen, len+prefix_len+o_data_len);
+    exit(1);
+  }
+
+  random_bytes(outbuff, prefix_len);
+  memcpy(outbuff+prefix_len, in, len);
+  len += prefix_len;
+  memcpy(outbuff+len, o_data, o_data_len);
+
+  len +=o_data_len;
+
+  len = add_padding(outbuff, len, 16);
+  
+  aes_ecb_encrypt(outbuff, len, o_key, 16);
+
+  return len;
+}
