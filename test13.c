@@ -20,6 +20,9 @@ int main(int argc, char *argv[]) {
   //printf("JSON:\n\n%s", testbuff);
 
   len = encrypt_profile("foo@bar.com", ciphertext, sizeof(ciphertext));
+
+  
+
   decrypt_profile(ciphertext, len, plaintext, sizeof(plaintext));
   printf("profile:\n%s\n", plaintext);
 }
