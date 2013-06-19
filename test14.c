@@ -89,7 +89,8 @@ int main(int argc, char *argv[]) {
 #endif
 
 
-  int plain_len = encryption_oracle_ecb(testdata, 0, ciphertext, sizeof(ciphertext));
+  //int plain_len = encryption_oracle_ecb(testdata, 0, ciphertext, sizeof(ciphertext));
+
 #if 0
   for(i = 0; i < 15; i++) {
     if(plain_len != encryption_oracle_ecb(testdata, i, ciphertext, sizeof(ciphertext))) {
@@ -135,12 +136,10 @@ int main(int argc, char *argv[]) {
       } while(l >= len);
 
       printf("Found block marker at position %d\n", l);
-      
-  
-
-      //printf("cipherlen %d, start at: %d, block_offset: %d\n", len, block_start, i);
+      printf("cipherlen %d, start at: %d, block_offset: %d\n", len, block_start, i);
 
       memcpy(testblock0, ciphertext+l+16+block_start, 16);
+
       
       //printf("testblock0:\n");
       //hexdump(testblock0, 16);
@@ -175,24 +174,33 @@ int main(int argc, char *argv[]) {
           
         } while(l >= len);
 
+        //printf("testblock1, found block marker at position %d\n", l);
+
         if(!memcmp(testblock0, ciphertext+l+16, 16)) { // found next plaintext
           plaintext[k++] = j;
           //printf("found plaintext char: %02x at %d\n", j, k);
           break;
         }
       }
+
       if(j == 256) {
-        //printf("Failed to find plaintext character at index: %d!\n", k);
+        printf("Failed to find plaintext character at index: %d!\n", k);
         break;
       }
       
-      if(k >= plain_len) {
-        break;
-      }
+      //      if(k >= plain_len) {
+      //   break;
+      // }
 
     }
 
-    printf("found plaintext: %.16s\n", plaintext+block_start);
+    if(j == 256) {
+      printf("Block failed, retry");
+      continue;
+    }
+
+    plaintext[k] = '\0';
+    printf("found plaintext block: %.16s\n", plaintext+block_start);
     
     //return 0;
 
