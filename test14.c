@@ -7,7 +7,8 @@ int encryption_oracle_ecb_random_prefix(const unsigned char *in, int len, unsign
 int main(int argc, char *argv[]) {
 
   unsigned char *testdata = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  unsigned char *markdata = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  unsigned char *markdata0 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  unsigned char *markdata1 = "cccccccccccccccccccccccccccccccccccccccccccccccc";
 
   int testdata_len;
   unsigned char testbuff[256];
@@ -23,13 +24,13 @@ int main(int argc, char *argv[]) {
 
   int len, blocklen;
 
-  unsigned char block_mark[16];
+  unsigned char block_mark[32];
 
   int i, j, k, l;
 
   testdata_len = strlen(testdata);
 
-  len = encryption_oracle_ecb_random_prefix(markdata, testdata_len, ciphertext, sizeof(ciphertext));
+  len = encryption_oracle_ecb_random_prefix(markdata0, testdata_len, ciphertext, sizeof(ciphertext));
 
   if(!detect_ecb(ciphertext, len, blocklen)) {
     printf("Cannot decrypt non ECB encoded data\n");
@@ -39,6 +40,7 @@ int main(int argc, char *argv[]) {
   // repeat to verify that we really find same block marker over and over
   //for(k = 0; k < 10; k++) {
     
+  // detect blockmark0 pattern
     for(i = 0; i < len; i+= 16) {
       for(j = i+16; j < len; j += 16) {
         if(!memcmp(ciphertext+i, ciphertext+j, 16))  {
@@ -51,6 +53,20 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    len = encryption_oracle_ecb_random_prefix(markdata1, testdata_len, ciphertext, sizeof(ciphertext));
+
+    // detect blockmark1 pattern
+    for(i = 0; i < len; i+= 16) {
+      for(j = i+16; j < len; j += 16) {
+        if(!memcmp(ciphertext+i, ciphertext+j, 16))  {
+          memcpy(block_mark+16, ciphertext+i, 16);
+          break;
+        }
+        if(j < len) {
+          break;
+        }
+      }
+    }
 
     //hexdump(block_mark, 16);
     //len = encryption_oracle_ecb_random_prefix(testdata, testdata_len, ciphertext, sizeof(ciphertext));    
@@ -119,30 +135,31 @@ int main(int argc, char *argv[]) {
     for(i = 15; i >=0; i--) {
       // encode first ECB block with known data + part of ciphertext, also ensure that we get ciphertext shifted 1-15 bytes left
 
-      memcpy(testbuff, markdata, 16);
-      memcpy(testbuff+16, testdata, 16);
+      memcpy(testbuff, markdata0, 16);
+      memcpy(testbuff+16, markdata1, 16);
+      memcpy(testbuff+32, testdata, 16);
       
       do {
-        len = encryption_oracle_ecb_random_prefix(testbuff, 16+i, ciphertext, sizeof(ciphertext));
+        len = encryption_oracle_ecb_random_prefix(testbuff, 32+i, ciphertext, sizeof(ciphertext));
         
         //printf("got cipherblock of size: %d, find block mark\n", len);
 
-        for(l = 0; l < len; l += 16) {
-          if(!memcmp(ciphertext+l, block_mark, 16)) {
+        for(l = 0; l < (len-16); l += 16) {
+          if(!memcmp(ciphertext+l, block_mark, 32)) {
             break;
           }
         }
 
-      } while(l >= len);
+      } while(l >= (len-16) );
 
-      printf("Found block marker at position %d\n", l);
-      printf("cipherlen %d, start at: %d, block_offset: %d\n", len, block_start, i);
+      //printf("Found block marker at position %d\n", l);
+      //printf("cipherlen %d, start at: %d, block_offset: %d\n", len, block_start, i);
 
-      memcpy(testblock0, ciphertext+l+16+block_start, 16);
+      memcpy(testblock0, ciphertext+l+32+block_start, 16);
 
       
       //printf("testblock0:\n");
-      //hexdump(testblock0, 16);
+      //hexdump(testblock0, 32);
       
       if(k < 16){
         memcpy(testblock1, testdata, i);
@@ -160,23 +177,24 @@ int main(int argc, char *argv[]) {
       for(j = 0; j < 256; j++) {
         testblock1[15] = j;
 
-        memcpy(testbuff, markdata, 16);
-        memcpy(testbuff+16, testblock1, 16);
+        memcpy(testbuff, markdata0, 16);
+        memcpy(testbuff+16, markdata1, 16);
+        memcpy(testbuff+32, testblock1, 16);
         
         do {
-          len = encryption_oracle_ecb_random_prefix(testbuff, 32, ciphertext, sizeof(ciphertext));
+          len = encryption_oracle_ecb_random_prefix(testbuff, 48, ciphertext, sizeof(ciphertext));
           
-          for(l = 0; l < len; l += 16) {
-            if(!memcmp(ciphertext+l, block_mark, 16)) {
+          for(l = 0; l < (len-16); l += 16) {
+            if(!memcmp(ciphertext+l, block_mark, 32)) {
               break;
             }
           }
           
-        } while(l >= len);
+        } while(l >= (len-16));
 
         //printf("testblock1, found block marker at position %d\n", l);
 
-        if(!memcmp(testblock0, ciphertext+l+16, 16)) { // found next plaintext
+        if(!memcmp(testblock0, ciphertext+l+32, 16)) { // found next plaintext
           plaintext[k++] = j;
           //printf("found plaintext char: %02x at %d\n", j, k);
           break;
@@ -195,8 +213,8 @@ int main(int argc, char *argv[]) {
     }
 
     if(j == 256) {
-      printf("Block failed, retry");
-      continue;
+      // no more decryptable plaintext
+      break;
     }
 
     plaintext[k] = '\0';
@@ -212,7 +230,7 @@ int main(int argc, char *argv[]) {
 
   plaintext[k] = '\0';
   printf("Found %d bytes plaintext:\n%s\n", k, plaintext);
-  //hexdump(plaintext, k);
+  hexdump(plaintext, k);
 
   return 0;
 }
