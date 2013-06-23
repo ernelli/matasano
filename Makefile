@@ -1,5 +1,5 @@
 all: base64.o rate.o tools.o test1 test2 test3 test4 test5 test6 test7 test7a test8 \
-	test9 test10 test11 test12 test13 test14
+	test9 test10 test11 test12 test13 test14 test15 test16
 
 challenge1: base64.o rate.o test1 test2 test3 test4 test5 test6 test7 test8
 	@echo running test1
@@ -69,3 +69,9 @@ test13: test13.o tools.o
 
 test14: test14.o tools.o oracle.o
 	gcc -o test14 test14.o tools.o oracle.o
+
+test15: test15.o tools.o
+	gcc -o test15 test15.o tools.o 
+
+test16: test16.o tools.o
+	gcc -o test16 test16.o tools.o 

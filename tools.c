@@ -950,3 +950,87 @@ void decrypt_profile(unsigned char *data, int len, char *profile, int size) {
     exit(1);
   }
 }
+
+int validate_padding(const unsigned char *data, int len) {
+  int p, i;
+
+  if(!len || len % 16 != 0) {
+    return 0;
+  }
+  
+  p = data[len-1];
+  if(p < 1 || p > 16) {
+    return 0;
+  }
+  
+  for(i = len - p; i < len -1; i++) {
+    if(data[i] != p) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+static unsigned char ud_key[16];
+static unsigned char ud_iv[16];
+static int ud_init = 0;
+
+
+int add_userdata(const char *userdata, unsigned char *ciphertext, int bufflen) {
+  char *prefix = "comment1=cooking%20MCs;userdata=";
+  char *postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
+
+  const char *s;
+  char *d;
+
+  int len;
+
+  if(!ud_init) {
+    random_bytes(ud_key, 16);
+    random_bytes(ud_iv, 16);
+    ud_init = 1;
+  }
+
+  strcpy(ciphertext, prefix);
+  
+  s = userdata;
+  d = ciphertext + strlen(ciphertext);
+
+  while(*s) {
+    if(*s == ';' || *s == '=') {
+      d += sprintf(d, "%%%02x", *s);
+    } else {
+      *d++ = *s;
+    }
+    s++;
+  }
+
+  *d++ = '\0';
+  
+  // strcat(ciphertext, userdata);
+  strcat(ciphertext, postfix);
+
+  len = strlen(ciphertext);
+  len = add_padding(ciphertext, len, 16);
+
+  aes_cbc_encrypt(ciphertext, len, ud_key, sizeof(ud_key), ud_iv);
+  
+  return len;
+}
+
+int is_user_admin(unsigned char *data, int len) {
+  char plaintext[1024];
+
+  memcpy(plaintext, data, len);
+
+  aes_cbc_decrypt(plaintext, len, ud_key, sizeof(ud_key), ud_iv);
+
+  if(validate_padding(plaintext, len)) {
+    strip_padding(plaintext, len);
+    if(strstr(plaintext, ";admin=true;")) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
