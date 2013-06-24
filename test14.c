@@ -11,7 +11,19 @@ int main(int argc, char *argv[]) {
   unsigned char *markdata1 = "cccccccccccccccccccccccccccccccccccccccccccccccc";
 
   int testdata_len;
-  unsigned char testbuff[256];
+
+  // prepend a prefix_len number of random/junk bytes to our testdata to avoid getting
+  // stuck if encryption_oracle is not prepending a random size data... or prepends random sized
+  // data which does not cover all % 16 possible sizes, e.g, random prefixed data of 2-3 different
+  // lengths. Use one len variable for each step in decryption process so that previous successful
+  // value can be reused in the case that encryption oracle prefixes with the same data/size every
+  // time (16 times speedup in that case).
+
+  unsigned char prefix_len0 = 0;
+  unsigned char prefix_len1 = 0;
+
+  unsigned char testbuff[1024];
+  unsigned char testbuff_p[1024];
 
   unsigned char ciphertext[1024];
   unsigned char plaintext[1024];
@@ -27,6 +39,13 @@ int main(int argc, char *argv[]) {
   unsigned char block_mark[32];
 
   int i, j, k, l;
+
+  const int *letter_test_table;
+
+  // test letters using a letter frequency table instead of testing all letters 0..255.
+  // table contains a-z, A-Z, punct and numbers then remaining bytes 0..255 in ascending order
+  // result in a speedup *3
+  letter_test_table = get_letter_test_table();
 
   testdata_len = strlen(testdata);
 
@@ -68,55 +87,6 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    //hexdump(block_mark, 16);
-    //len = encryption_oracle_ecb_random_prefix(testdata, testdata_len, ciphertext, sizeof(ciphertext));    
-    //}
-
-
-#if 0
-  for(i = 3; i < 32; i++) {
-    len = encryption_oracle_ecb(testdata, i, ciphertext, sizeof(ciphertext));
-    memcpy(testblock1, testblock0, sizeof(testblock1));
-    memcpy(testblock0, ciphertext, sizeof(testblock1));
-
-    /*
-    printf("Testblocks at len: %d\n", i);
-    hexencode(testblock0, 32, hex0);
-    hexencode(testblock1, 32, hex1);
-    hex0[64] = '\0';
-    hex1[64] = '\0';
-    printf("testblock0: %s\ntestblock1: %s\n", hex0, hex1);
-    */
-
-    if(!memcmp(testblock0, testblock1, i-1)) {
-      blocklen = i - 1;
-      printf("blocksize: %d\n", blocklen);
-    }
-  }
-
-  len = strlen(testdata);
-
-  len = encryption_oracle_ecb(testdata, len, ciphertext, sizeof(ciphertext));
-
-  if(!detect_ecb(ciphertext, len, blocklen)) {
-    printf("Cannot decrypt non ECB encoded data\n");
-    return 0;
-  }
-#endif
-
-
-  //int plain_len = encryption_oracle_ecb(testdata, 0, ciphertext, sizeof(ciphertext));
-
-#if 0
-  for(i = 0; i < 15; i++) {
-    if(plain_len != encryption_oracle_ecb(testdata, i, ciphertext, sizeof(ciphertext))) {
-      plain_len = plain_len - 16 + i;
-      break;
-    }
-  }
-  printf("ECB detected, decrypting secret %d bytes data...\n", plain_len);
-#endif
-
   // use 'aaaaaaaaaaaaaaaa' initially as testdata for block 0, 
   // replace with plaintext in subsequent blocks
 
@@ -139,8 +109,11 @@ int main(int argc, char *argv[]) {
       memcpy(testbuff+16, markdata1, 16);
       memcpy(testbuff+32, testdata, 16);
       
+      // repeat until we get a block aligned encryption result
       do {
-        len = encryption_oracle_ecb_random_prefix(testbuff, 32+i, ciphertext, sizeof(ciphertext));
+        memcpy(testbuff_p+prefix_len0, testbuff, 32+i);
+        
+        len = encryption_oracle_ecb_random_prefix(testbuff_p, prefix_len0+32+i, ciphertext, sizeof(ciphertext));
         
         //printf("got cipherblock of size: %d, find block mark\n", len);
 
@@ -150,6 +123,11 @@ int main(int argc, char *argv[]) {
           }
         }
 
+        // if not found, try new prefix size
+        if(l >= (len-16) ) {
+          random_bytes(&prefix_len0, 1);
+          prefix_len0 &= 0xf;
+        }
       } while(l >= (len-16) );
 
       //printf("Found block marker at position %d\n", l);
@@ -175,19 +153,29 @@ int main(int argc, char *argv[]) {
       
       //find the next character
       for(j = 0; j < 256; j++) {
-        testblock1[15] = j;
+        testblock1[15] = letter_test_table[j];
 
         memcpy(testbuff, markdata0, 16);
         memcpy(testbuff+16, markdata1, 16);
         memcpy(testbuff+32, testblock1, 16);
-        
+
         do {
-          len = encryption_oracle_ecb_random_prefix(testbuff, 48, ciphertext, sizeof(ciphertext));
+          memcpy(testbuff_p+prefix_len1, testbuff, 48);
+          
+          // intially try again with last prefix size, if encryption_oracle uses fixed size random_prefix we 
+          // can speed up the decryption a lot by using the same prefix in our test data.
+          len = encryption_oracle_ecb_random_prefix(testbuff_p, prefix_len1+48, ciphertext, sizeof(ciphertext));
           
           for(l = 0; l < (len-16); l += 16) {
             if(!memcmp(ciphertext+l, block_mark, 32)) {
               break;
             }
+          }
+
+          // if not found, try new prefix size
+          if(l >= (len-16)) {
+            random_bytes(&prefix_len1, 1);
+            prefix_len1 &= 0xf;
           }
           
         } while(l >= (len-16));
@@ -195,21 +183,17 @@ int main(int argc, char *argv[]) {
         //printf("testblock1, found block marker at position %d\n", l);
 
         if(!memcmp(testblock0, ciphertext+l+32, 16)) { // found next plaintext
-          plaintext[k++] = j;
+          plaintext[k++] = letter_test_table[j];
           //printf("found plaintext char: %02x at %d\n", j, k);
           break;
         }
       }
 
       if(j == 256) {
-        printf("Failed to find plaintext character at index: %d!\n", k);
+        //printf("Failed to find plaintext character at index: %d!\n", k);
         break;
       }
       
-      //      if(k >= plain_len) {
-      //   break;
-      // }
-
     }
 
     if(j == 256) {
@@ -217,9 +201,6 @@ int main(int argc, char *argv[]) {
       break;
     }
 
-    plaintext[k] = '\0';
-    printf("found plaintext block: %.16s\n", plaintext+block_start);
-    
     //return 0;
 
     block_start += 16;
@@ -228,9 +209,10 @@ int main(int argc, char *argv[]) {
 
   } while(block_start < len);
 
-  plaintext[k] = '\0';
+  k = strip_padding(plaintext, k);
+
   printf("Found %d bytes plaintext:\n%s\n", k, plaintext);
-  hexdump(plaintext, k);
+  //hexdump(plaintext, k);
 
   return 0;
 }

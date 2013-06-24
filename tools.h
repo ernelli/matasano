@@ -6,6 +6,7 @@ int base64decode(const char *s, int len, unsigned char *d);
 int  hexdecode(const char *s, unsigned char *d);
 void hexencode(const unsigned char *s, int len, char *d);
 
+const int *get_letter_test_table();
 double rate_text(const unsigned char *s, int len, int dump);
 double rate_text_key(const unsigned char *s, int len, unsigned char key);
 

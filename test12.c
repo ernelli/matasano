@@ -14,12 +14,18 @@ int main(int argc, char *argv[]) {
   unsigned char testblock0[64];
   unsigned char testblock1[64];
 
+  const int *letter_test_table;
+
   char hex0[128];
   char hex1[128];
 
   int len, blocklen;
 
   int i, j, k;
+
+  // test letters using a letter frequency table instead of testing all letters 0..255.
+  // table contains a-z, A-Z, punct and numbers then remaining bytes 0..255 in ascending order
+  letter_test_table = get_letter_test_table();
 
   for(i = 3; i < 32; i++) {
     len = encryption_oracle_ecb(testdata, i, ciphertext, sizeof(ciphertext));
@@ -85,22 +91,23 @@ int main(int argc, char *argv[]) {
 
       testblock1[15] = '\0';
       
-      printf("testblock1, i=%d, block_start=%d\n", i, block_start);
-      hexdump(testblock1, 16);
+      //printf("testblock1, i=%d, block_start=%d\n", i, block_start);
+      //hexdump(testblock1, 16);
       
       //find the next character
       for(j = 0; j < 256; j++) {
-        testblock1[15] = j;
+        testblock1[15] = letter_test_table[j];
         
         encryption_oracle_ecb(testblock1, 16, ciphertext, sizeof(ciphertext));
         if(!memcmp(testblock0, ciphertext, 16)) { // found next plaintext
-          plaintext[k++] = j;
+          plaintext[k++] = letter_test_table[j];
           //printf("found plaintext char: %02x at %d\n", j, k);
           break;
         }
       }
+
       if(j == 256) {
-        //printf("Failed to find plaintext character at index: %d!\n", k);
+        //printf("Failed to find plaintext character at index: %d, no more data present!\n", k);
         break;
       }
     }
@@ -113,9 +120,11 @@ int main(int argc, char *argv[]) {
 
   } while(block_start < len);
 
+  k = strip_padding(plaintext, k);
+
   plaintext[k] = '\0';
   printf("Found %d bytes plaintext:\n%s\n", k, plaintext);
-  hexdump(plaintext, k);
+  //hexdump(plaintext, k);
 
   return 0;
 }

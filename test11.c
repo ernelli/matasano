@@ -8,17 +8,18 @@ int main(int argc, char *argv[]) {
   char *testdata = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   unsigned char ciphertext[256];
 
-  int len;
+  int i, len;
 
   len = strlen(testdata);
 
-  len = encryption_oracle(testdata, len, ciphertext, sizeof(ciphertext));
-
-  if(detect_ecb(ciphertext, len, 16)) {
-    printf("ECB\n");
-  } else {
-    printf("CBC\n");
+  for(i = 0; i < 10; i++) {
+    len = encryption_oracle(testdata, len, ciphertext, sizeof(ciphertext));
+    
+    if(detect_ecb(ciphertext, len, 16)) {
+      printf("ECB\n");
+    } else {
+      printf("CBC\n");
+    }
   }
-
   return 0;
 }

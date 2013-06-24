@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
   b64buf[len] = '\0';
   printf("%s\n", b64buf);
   len = base64decode(b64buf, len, binbuf);
-  hexencode(binbuf, hexbuf, len);
+  hexencode(binbuf, len,  hexbuf);
   hexbuf[2*len] = '\0';
   printf("%s\n", hexbuf);
 

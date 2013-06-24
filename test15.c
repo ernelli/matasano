@@ -15,4 +15,6 @@ int main(int argc, char *argv[]) {
   printf("invalid: %d\n", validate_padding(invalid1, 16));
   printf("invalid: %d\n", validate_padding(invalid2, 16));
   printf("invalid: %d\n", validate_padding(invalid3, 16));
+
+  return 0;
 }

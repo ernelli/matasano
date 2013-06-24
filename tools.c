@@ -121,11 +121,10 @@ void hexencode(const unsigned char *s, int len, char *d) {
 }
 
 
-/*
-struct freq_table_t {
-  char letter;
+struct freq_table_s {
+  int letter;
   double f;
-} freq_table[] = {
+} letter_freq_table[] = {
 'a', 8.167,
 'b', 1.492,
 'c', 2.782,
@@ -153,7 +152,6 @@ struct freq_table_t {
 'y', 1.974,
 'z', 0.074,
 };
-*/
 
 double freq_table[] = {
   8.167,
@@ -184,9 +182,20 @@ double freq_table[] = {
   0.074,
 };
 
+int letter_test_table[256];
+
 static int freq_table_size = sizeof(freq_table)/sizeof(freq_table[0]);
 
 static int f_init_done = 0;
+
+int comp_freq_table(const void *_a, const void *_b) {
+
+  const struct freq_table_s *a = (const struct freq_table_s *)_a;
+  const struct freq_table_s *b = (const struct freq_table_s *)_b;
+
+  return a->f > b->f ? -1 : 1;
+}
+
 static f_init() {
   int i;
   for(i = 0; i < freq_table_size; i++) {
@@ -194,6 +203,60 @@ static f_init() {
   }
 }
 
+const int *get_letter_test_table() {
+  int i, N, n;
+
+  int marker[256];
+
+  static int init_done = 0;
+
+
+  if(!init_done) {
+    N = sizeof(letter_freq_table)/sizeof(struct freq_table_s);
+    
+    qsort(letter_freq_table, N, sizeof(struct freq_table_s), comp_freq_table);
+    
+    for(i = 0; i < N; i++) {
+      letter_test_table[i] = letter_freq_table[i].letter;
+      letter_test_table[i+N] = letter_freq_table[i].letter - 'a' + 'A';
+    }
+    
+    i = 2*N;
+    
+    letter_test_table[i++] = ' ';
+    letter_test_table[i++] = '.';
+    letter_test_table[i++] = '\n';
+    
+    for(n = 0; n < 10; n++) {
+      letter_test_table[i++] = '0' + n;
+    }
+    
+    memset(marker, 0, sizeof(marker));
+    
+    for(n = 0; n < i; n++) {
+      marker[letter_test_table[n]] = 1;
+    }
+
+    for(n = 0; n < 256; n++) {
+      if(!marker[n]) {
+        if(i >= 256) {
+          fprintf(stderr, "internal error generating letter_test_table\n");
+          exit(1);
+        }
+        letter_test_table[i++] = n;
+      }
+    }
+    
+    if(i != 256) {
+      fprintf(stderr, "internal error generating letter_test_table\n");
+      exit(1);
+    }
+
+    init_done = 1;
+  }
+
+  return letter_test_table;
+}
 
 double xcorr(const double *X, const double *Y, int N) {
   int i;
@@ -374,11 +437,21 @@ void strip_terminate(char *data, int len) {
   }
 }
 
-void strip_padding(char *data, int len) {
-  while(len && data[len-1] <= 16) {
-    len--;
-    data[len] = '\0';
+int strip_padding(char *data, int len) {
+  int p, i;
+
+  p = data[len-1];
+  if(p < 1 || p > 16) {
+    return len;
   }
+
+  if(p > len) {
+    return len;
+  }
+  
+  data[len-p] = '\0';
+
+  return len - p;
 }
 
 

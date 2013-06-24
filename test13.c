@@ -58,4 +58,6 @@ int main(int argc, char *argv[]) {
 
   decrypt_profile(ciphertext, len, plaintext, sizeof(plaintext));
   printf("profile:\n%s\n", plaintext);
+
+  return 0;
 }

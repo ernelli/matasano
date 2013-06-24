@@ -34,4 +34,6 @@ int main(int argc, char *argv[]) {
   data[32+11] ^= 0x68;
 
   printf("real attack, user_is_admin: %s\n", is_user_admin(data, len) ? "true" : "false");
+
+  return 0;
 }

@@ -76,29 +76,10 @@ int encryption_oracle_ecb(const unsigned char *in, int len, unsigned char *outbu
   memcpy(outbuff, in, len);
   memcpy(outbuff+len, o_data, o_data_len);
 
-  if(len == 5){
-    printf("outbuff:\n");
-    hexdump(outbuff, 16);
-    printf("in:\n");
-    hexdump(in, len);
-  }
-
   len +=o_data_len;
 
   len = add_padding(outbuff, len, 16);
 
-  if(!memcmp(in, " just drove by", 14)) {
-    printf("testblock: ");
-    hexdump(outbuff, 16);
-  }
-
-  /*
-  if(o_init == 1) {
-    printf("prior encrypt\n");
-    hexdump(outbuff, len);
-    //o_init = 2;
-  }
-  */
   aes_ecb_encrypt(outbuff, len, o_key, 16);
 
   return len;
@@ -123,6 +104,9 @@ int encryption_oracle_ecb_random_prefix(const unsigned char *in, int len, unsign
   
   random_bytes(prefix_len_s, 1);
   prefix_len = (int)prefix_len_s[0];
+
+  // test the performance using a fixed sized prefix
+  //  prefix_len = 5;
 
   if(len + prefix_len + o_data_len > outlen) {
     fprintf(stderr, "encryption_oracle_ecb failed, outbuff size (%d) too small, %d bytes needed\n", outlen, len+prefix_len+o_data_len);
