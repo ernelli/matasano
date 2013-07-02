@@ -126,3 +126,77 @@ int encryption_oracle_ecb_random_prefix(const unsigned char *in, int len, unsign
 
   return len;
 }
+
+static char *po_plaintext[] =
+  {"MDAwMDAwTm93IHRoYXQgdGhlIHBhcnR5IGlzIGp1bXBpbmc=",
+   "MDAwMDAxV2l0aCB0aGUgYmFzcyBraWNrZWQgaW4gYW5kIHRoZSBWZWdhJ3MgYXJlIHB1bXBpbic=",
+   "MDAwMDAyUXVpY2sgdG8gdGhlIHBvaW50LCB0byB0aGUgcG9pbnQsIG5vIGZha2luZw==",
+   "MDAwMDAzQ29va2luZyBNQydzIGxpa2UgYSBwb3VuZCBvZiBiYWNvbg==",
+   "MDAwMDA0QnVybmluZyAnZW0sIGlmIHlvdSBhaW4ndCBxdWljayBhbmQgbmltYmxl",
+   "MDAwMDA1SSBnbyBjcmF6eSB3aGVuIEkgaGVhciBhIGN5bWJhbA==",
+   "MDAwMDA2QW5kIGEgaGlnaCBoYXQgd2l0aCBhIHNvdXBlZCB1cCB0ZW1wbw==",
+   "MDAwMDA3SSdtIG9uIGEgcm9sbCwgaXQncyB0aW1lIHRvIGdvIHNvbG8=",
+   "MDAwMDA4b2xsaW4nIGluIG15IGZpdmUgcG9pbnQgb2g=",
+   "MDAwMDA5aXRoIG15IHJhZy10b3AgZG93biBzbyBteSBoYWlyIGNhbiBibG93"
+  };
+
+static int po_size = sizeof(po_plaintext)/sizeof(po_plaintext[0]);
+
+static int po_init = 0;
+static unsigned char po_key[16];
+static unsigned char po_iv[16];
+
+int cbc_padding_oracle(unsigned char *data, int size, unsigned char *iv) {
+  unsigned int index;
+  int len;
+
+  if(!po_init) {
+    random_bytes(po_key, 16);
+    random_bytes(po_iv, 16);
+    po_init = 1;
+  }
+
+  random_bytes((unsigned char *)&index, sizeof(index));
+  index %= po_size;
+
+  len = strlen(po_plaintext[index]);
+  if(len + 16 & ~0xf > size) {
+    fprintf(stderr, "supplied buffer too small (%d) %d bytes needed\n", size, len +16 & ~0xf);
+    exit(1);
+  }
+  //printf("index; %d\n", index);
+
+  len = base64decode(po_plaintext[index], strlen(po_plaintext[index]), data);
+  //  memcpy(data, po_plaintext[index], len);
+  len = add_padding(data, len, 16);
+  
+  aes_cbc_encrypt(data, len, po_key, sizeof(po_key), po_iv);
+
+  // return IV to caller, seems odd, but the challenge instructions says so:
+  //
+  // "generate a random AES key (which it should save for all future
+  // encryptions), pad the string out to the 16-byte AES block size and
+  // CBC-encrypt it under that key, providing the caller the ciphertext and
+  // IV."
+  
+  memcpy(iv, po_iv, 16);
+
+  // unless IV is known by caller, first block can never be deciphered
+
+  return len;
+}
+
+int cbc_padding_oracle_validate(const unsigned char *ciphertext, int len) {
+  unsigned char plaintext[1024];
+
+  if(len > sizeof(plaintext)) {
+    fprintf(stderr, "ciphertext too large (%d) max %d bytes can be validated\n", len, sizeof(plaintext));
+    exit(1);    
+  }
+
+  memcpy(plaintext, ciphertext, len);
+
+  aes_cbc_decrypt(plaintext, len, po_key, sizeof(po_key), po_iv);
+
+  return validate_padding(plaintext, len);
+}

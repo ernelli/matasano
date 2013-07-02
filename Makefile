@@ -1,7 +1,8 @@
-default: challenge2
+default: all
 
-all: base64.o rate.o tools.o test1 test2 test3 test4 test5 test6 test7 test7a test8 \
-	test9 test10 test11 test12 test13 test14 test15 test16
+all: tools.o test1 test2 test3 test4 test5 test6 test7 test7a test8 \
+     test9 test10 test11 test12 test13 test14 test15 test16 \
+     test17 test18 test19 test20
 
 challenge1: base64.o rate.o test1 test2 test3 test4 test5 test6 test7 test8
 	@echo "// ------------------------------------------------------------\nrunning test1"
@@ -42,23 +43,23 @@ challenge2: base64.o rate.o test9 test10 test11 test12 test13 test14 test15 test
 clean:
 	rm *.o
 
-test1: test1.o base64.o
-	gcc -o test1 test1.o base64.o
+test1: test1.o tools.o
+	gcc -o test1 test1.o tools.o
 
-test2: test2.o base64.o
-	gcc -o test2 test2.o base64.o
+test2: test2.o tools.o
+	gcc -o test2 test2.o tools.o
 
-test3: test3.o base64.o rate.o
-	gcc -o test3 test3.o base64.o rate.o
+test3: test3.o tools.o 
+	gcc -o test3 test3.o tools.o 
 
-test4: test4.o base64.o rate.o
-	gcc -o test4 test4.o base64.o rate.o
+test4: test4.o tools.o 
+	gcc -o test4 test4.o tools.o 
 
-test5: test5.o base64.o rate.o
-	gcc -o test5 test5.o base64.o rate.o
+test5: test5.o tools.o 
+	gcc -o test5 test5.o tools.o 
 
-test6: test6.o base64.o rate.o
-	gcc -o test6 test6.o base64.o rate.o
+test6: test6.o tools.o 
+	gcc -o test6 test6.o tools.o 
 
 test7: test7.o tools.o
 	gcc -o test7 test7.o tools.o -l crypto
@@ -67,8 +68,8 @@ test7a: test7a.o tools.o
 	gcc -o test7a test7a.o tools.o
 
 
-test8: test8.o base64.o
-	gcc -o test8 test8.o base64.o
+test8: test8.o tools.o
+	gcc -o test8 test8.o tools.o
 
 #####
 
@@ -95,3 +96,15 @@ test15: test15.o tools.o
 
 test16: test16.o tools.o
 	gcc -o test16 test16.o tools.o 
+
+test17: test17.o tools.o oracle.o
+	gcc -o test17 test17.o tools.o oracle.o
+
+test18: test18.o tools.o
+	gcc -o test18 test18.o tools.o
+
+test19: test19.o tools.o
+	gcc -o test19 test19.o tools.o
+
+test20: test20.o tools.o
+	gcc -o test20 test20.o tools.o

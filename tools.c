@@ -463,7 +463,7 @@ void hexdump(const unsigned char *data, int len) {
 
   d = line;
   
-  d = line + sprintf(line, "0000: ");
+  d = line + sprintf(line, "0000: ", data);
 
   for(i = 0; i < len; i++) {
     m = i & 0xf;
@@ -823,6 +823,46 @@ void aes_cbc_decrypt(unsigned char *block, int len, unsigned char *key, int key_
     len -= 16;
     block += 16;
   }
+}
+
+void aes_ctr_decrypt(unsigned char *stream, int len, unsigned char *key, int key_len, unsigned char *nonce, unsigned int block_lo, unsigned int block_hi) {
+  unsigned char expanded_key[16*(14+1)];
+  int i, ks;
+  unsigned char block[16];
+  unsigned char block_no[8];
+
+  if(!AES_init_done) {
+    AES_init();
+    AES_init_done = 1;
+  }
+
+  memcpy(expanded_key, key, key_len);
+  ks = AES_ExpandKey(expanded_key, key_len);
+
+  for(i = 0; i < 4; i++) {
+    block_no[4+i] = (unsigned char)(block_hi >> 8*i);
+    block_no[i] = (unsigned char)(block_lo >> 8*i);
+  }
+  
+  while(len > 0) {
+    memcpy(block, nonce, 8);
+    memcpy(block+8, block_no, 8);
+
+    AES_Encrypt(block, expanded_key, ks);
+    xor_encrypt(stream, block, len >= 16 ? 16 : len, 16);
+
+    i = 0;
+    do {
+      block_no[i++]++;
+    } while(i < 8 && !block_no[i-1]);
+
+    stream += 16;
+    len -= 16;
+  }
+}
+
+void aes_ctr_encrypt(unsigned char *stream, int len, unsigned char *key, int key_len, unsigned char *nonce, unsigned int block_lo, unsigned int block_hi) {
+  aes_ctr_decrypt(stream, len, key, key_len, nonce, block_lo, block_hi);
 }
 
 // AES in counter mode as pseudorandom source
