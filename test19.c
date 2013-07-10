@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   for(i = 0; i < min_length; i++) {
     for(j = 0; j < num_strings; j++) {
       testblock[j] = cipherstrings[j][i];
-      stream_key[i] = find_xor_key(testblock, num_strings, &best_rate);
+      stream_key[i] = find_xor_key(testblock, num_strings, &best_rate, i == 0);
     }
   }
 

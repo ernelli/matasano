@@ -8,9 +8,9 @@ void hexencode(const unsigned char *s, int len, char *d);
 
 const int *get_letter_test_table();
 double rate_text(const unsigned char *s, int len, int dump);
-double rate_text_key(const unsigned char *s, int len, unsigned char key);
+double rate_text_key(const unsigned char *s, int len, unsigned char key, int table);
 
-unsigned char find_xor_key(unsigned char *s, int len, double *best_rate);
+unsigned char find_xor_key(unsigned char *s, int len, double *best_rate, int table);
 
 void xor_encrypt(unsigned char *data, const unsigned char *key, int data_len, int key_len);
 

@@ -1,13 +1,14 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
+#include<ctype.h>
 
 static char inttob64[64];
 static unsigned char b64toint[256];
 
 static int b64_init_done = 0;
 static void b64_init() {
-  int i, n;
+  int i;
   
   if(b64_init_done) {
     return;
@@ -28,7 +29,7 @@ static void b64_init() {
   inttob64[63] = '/';
 
   for(i = 0; i < 64; i++) {
-    b64toint[inttob64[i]] = i;
+    b64toint[(int)inttob64[i]] = i;
   }
   
   b64_init_done = 1;
@@ -86,9 +87,9 @@ int base64decode(const char *s, int len, unsigned char *d) {
 
   while(len >= 4) {
 
-    d[0] = (b64toint[s[0]] << 2) | (b64toint[s[1]] >> 4);
-    d[1] = (b64toint[s[1]] << 4) | (b64toint[s[2]] >> 2);
-    d[2] = (b64toint[s[2]] << 6) | (b64toint[s[3]]);
+    d[0] = (b64toint[(int)s[0]] << 2) | (b64toint[(int)s[1]] >> 4);
+    d[1] = (b64toint[(int)s[1]] << 4) | (b64toint[(int)s[2]] >> 2);
+    d[2] = (b64toint[(int)s[2]] << 6) | (b64toint[(int)s[3]]);
     
     d += 3 - (s[2] == '=' ? 2 : (s[3] == '=' ? 1 : 0));
     s += 4;
@@ -125,32 +126,32 @@ struct freq_table_s {
   int letter;
   double f;
 } letter_freq_table[] = {
-'a', 8.167,
-'b', 1.492,
-'c', 2.782,
-'d', 4.253,
-'e', 12.702,
-'f', 2.228,
-'g', 2.015,
-'h', 6.094,
-'i', 6.966,
-'j', 0.153,
-'k', 0.772,
-'l', 4.025,
-'m', 2.406,
-'n', 6.749,
-'o', 7.507,
-'p', 1.929,
-'q', 0.095,
-'r', 5.987,
-'s', 6.327,
-'t', 9.056,
-'u', 2.758,
-'v', 0.978,
-'w', 2.360,
-'x', 0.150,
-'y', 1.974,
-'z', 0.074,
+  {'a', 8.167},
+  {'b', 1.492},
+  {'c', 2.782},
+  {'d', 4.253},
+  {'e', 12.702},
+  {'f', 2.228},
+  {'g', 2.015},
+  {'h', 6.094},
+  {'i', 6.966},
+  {'j', 0.153},
+  {'k', 0.772},
+  {'l', 4.025},
+  {'m', 2.406},
+  {'n', 6.749},
+  {'o', 7.507},
+  {'p', 1.929},
+  {'q', 0.095},
+  {'r', 5.987},
+  {'s', 6.327},
+  {'t', 9.056},
+  {'u', 2.758},
+  {'v', 0.978},
+  {'w', 2.360},
+  {'x', 0.150},
+  {'y', 1.974},
+  {'z', 0.074}
 };
 
 double freq_table[] = {
@@ -182,6 +183,35 @@ double freq_table[] = {
   0.074,
 };
 
+double first_letter_freq_table[] = {
+  11.602,	
+  4.702,	
+  3.511,	
+  2.670,	
+  2.007,	
+  3.779,	
+  1.950,	
+  7.232,	
+  6.286,	
+  0.597,	
+  0.590,	
+  2.705,	
+  4.374,	
+  2.365,	
+  6.264,	
+  2.545,	
+  0.173,	
+  1.653,	
+  7.755,	
+  16.671,	
+  1.487,	
+  0.649,	
+  6.753,	
+  0.037,	
+  1.620,	
+  0.034
+};
+
 int letter_test_table[256];
 
 static int freq_table_size = sizeof(freq_table)/sizeof(freq_table[0]);
@@ -196,7 +226,7 @@ int comp_freq_table(const void *_a, const void *_b) {
   return a->f > b->f ? -1 : 1;
 }
 
-static f_init() {
+static void f_init() {
   int i;
   for(i = 0; i < freq_table_size; i++) {
     freq_table[i] /= 100;
@@ -269,7 +299,7 @@ double xcorr(const double *X, const double *Y, int N) {
   return s;
 }
 
-double rate_text_key(const unsigned char *s, int len, unsigned char key) {
+double rate_text_key(const unsigned char *s, int len, unsigned char key, int table) {
   int i, N = 0, n = 0, v = 0, c, freq[26];
   double rel_freq[26];
 
@@ -313,12 +343,12 @@ double rate_text_key(const unsigned char *s, int len, unsigned char key) {
   //  printf("ref1: %f\n", xcorr(freq_table, freq_table, 26));
   //  printf("ref2: %f\n", xcorr(rel_freq, rel_freq, 26));
 
-  return v*xcorr(rel_freq, freq_table, 26);
+  return v*xcorr(rel_freq, table ? first_letter_freq_table : freq_table, 26);
 }
 
 
 double rate_text(const unsigned char *s, int len, int dump) {
-  return rate_text_key(s, len, 0);
+  return rate_text_key(s, len, 0, 0);
   /*
   int i, N = 0, n = 0, v = 0, c, freq[26];
   double rel_freq[26];
@@ -371,14 +401,14 @@ double rate_text(const unsigned char *s, int len, int dump) {
 }
 
 
-unsigned char find_xor_key(unsigned char *s, int len, double *best_rate) {
+unsigned char find_xor_key(unsigned char *s, int len, double *best_rate, int table) {
   int i;
   double score[256];
 
   memset(score, 0, sizeof(score));
 
   for(i = 0; i < 256; i++) {
-    score[i] = rate_text_key(s, len, i);
+    score[i] = rate_text_key(s, len, i, table);
   }
 
   double maxs = score[0];
@@ -410,7 +440,7 @@ void xor_encrypt(unsigned char *data, const unsigned char *key, int data_len, in
 }
 
 int add_padding(unsigned char *data, int len, int blocklen) {
-  int i = len, add;
+  int add;
   unsigned char *d, *e;
 
   add = blocklen - len % blocklen;
@@ -438,7 +468,7 @@ void strip_terminate(char *data, int len) {
 }
 
 int strip_padding(char *data, int len) {
-  int p, i;
+  int p;
 
   p = data[len-1];
   if(p < 1 || p > 16) {
@@ -458,12 +488,12 @@ int strip_padding(char *data, int len) {
 void hexdump(const unsigned char *data, int len) {
   int i;
   char line[60], *d;
-  int m,a;
+  int m;
   char ascii[32];
 
   d = line;
   
-  d = line + sprintf(line, "0000: ", data);
+  d = line + sprintf(line, "0000: ");
 
   for(i = 0; i < len; i++) {
     m = i & 0xf;
@@ -1083,6 +1113,54 @@ int validate_padding(const unsigned char *data, int len) {
   }
   return 1;
 }
+
+unsigned int MT_state[624];
+int MT_index = 0;
+
+void MT_initialize_generator(unsigned int seed) {
+  int i;
+
+  MT_index = 0;
+  MT_state[0] = seed;
+  
+  for(i = 1; i < 624; i++) { // loop over each other element
+    //MT[i] := last 32 bits of(1812433253 * (MT[i-1] xor (right shift by 30 bits(MT[i-1]))) + i) // 0x6c078965
+    MT_state[i] = (unsigned int)(((MT_state[i-1] ^ (MT_state[i-1] >> 30) )) * 1812433253 + i);
+  }
+}
+
+ // Generate an array of 624 untempered numbers
+void MT_generate_numbers() {
+  int i;
+  for( i = 0; i < 624; i++)  {
+    unsigned int y = (MT_state[i] & 0x80000000)                       // bit 31 (32nd bit) of MT[i]
+      | (MT_state[(i+1) % 624] & 0x7fffffff);   // bits 0-30 (first 31 bits) of MT[...]
+    
+    MT_state[i] = MT_state[(i + 397) % 624] ^ (y >> 1);
+    if( (y & 1) != 0 ){ // y is odd
+      MT_state[i] = MT_state[i] ^ (2567483615);
+    }
+  }
+}
+
+ // Extract a tempered pseudorandom number based on the index-th value,
+ // calling generate_numbers() every 624 numbers
+unsigned int MT_extract_number() {
+  if(MT_index == 0) {
+    MT_generate_numbers();
+  }
+ 
+  unsigned int y = MT_state[MT_index];
+
+  y = y ^ (y >> 11);
+  y = y ^ ( (y << 7) & 2636928640); // 0x9d2c5680
+  y = y ^ ( (y << 15) & 4022730752); // 0xefc60000
+  y = y ^ (y >> 18);
+
+  MT_index = (MT_index + 1) % 624;
+  return y;
+}
+
 
 static unsigned char ud_key[16];
 static unsigned char ud_iv[16];
