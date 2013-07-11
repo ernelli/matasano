@@ -1152,12 +1152,76 @@ unsigned int MT_extract_number() {
  
   unsigned int y = MT_state[MT_index];
 
+  printf("untemp: %u\n", y);
+
   y = y ^ (y >> 11);
   y = y ^ ( (y << 7) & 2636928640); // 0x9d2c5680
   y = y ^ ( (y << 15) & 4022730752); // 0xefc60000
   y = y ^ (y >> 18);
 
   MT_index = (MT_index + 1) % 624;
+  return y;
+}
+
+unsigned int MT_reverse_number(unsigned int y) {
+  // reverse y = y ^ (y >> 18)
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y18                    aaaaaaaabbbbbb
+
+  y = y ^ (y >> 18);
+
+   // reverse y = y ^ ( (y << 15) & 0xefc60000)
+
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y15  bccccccccdddddddd
+  y = y ^ ( ((y & 0x7fff) << 15) &  0xefc60000);
+
+  //      3              1
+  //      1              6
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y15  bc
+  y = y ^ ( ((y & 0x18000) << 15) &  0xefc60000);
+
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y7   abbbbbbbbccccccccdddddddd
+  y = y ^ ( ((y & 0x7f) << 7) & 0x9d2c5680);
+
+  //                      0011 1111 1000 0000
+  //      3              1111     0
+  //      1              6543210987
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y7   abbbbbbbbccccccccd
+  y = y ^ ( ((y & 0x3f80) << 7) & 0x9d2c5680);
+
+  //      3       2       
+  //      1       3      6543210987
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y7   abbbbbbbbcc
+  // mask         000111111100000000000000
+  //                 1   f   c   0   0   0
+  y = y ^ ( ((y & 0x1fc000) << 7) & 0x9d2c5680);
+
+  //      3       2       
+  //      1       3      6543210987
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y7   abbb
+  // mask 00001111111000000000000000000000
+  //         0   f   e   0   0   0   0   0          
+  y = y ^ ( ((y & 0xfe00000) << 7) & 0x9d2c5680);
+
+  // reverse  y = y ^ (y >> 11);
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y11             aaaaaaaabbbbbbbbccccc
+  //      11111111111000000000000000000000
+  //         f   f   e   0   0   0   0   0
+  y = y ^ ( (y & 0xffe00000) >> 11);
+
+  // y    aaaaaaaabbbbbbbbccccccccdddddddd
+  // y11                        bbbbbccccc
+  //              000111111111100000000000
+  //                 1   f   f   8   0   0
+  y = y ^ ( (y & 0x1ff800) >> 11);
+  
   return y;
 }
 
