@@ -2,6 +2,7 @@
 #include<stdio.h>
 #include<string.h>
 #include<ctype.h>
+#include<sys/time.h>
 
 static char inttob64[64];
 static unsigned char b64toint[256];
@@ -1059,8 +1060,8 @@ int encrypt_profile(const char *email, char *data, int len) {
     exit(1);
   }
   
-  len = add_padding(data, strlen(data), 16);
-  aes_ecb_encrypt(data, len, profile_key, sizeof(profile_key));
+  len = add_padding((unsigned char *)data, strlen(data), 16);
+  aes_ecb_encrypt((unsigned char *)data, len, profile_key, sizeof(profile_key));
   return len;
 }
 
@@ -1088,7 +1089,7 @@ void decrypt_profile(unsigned char *data, int len, char *profile, int size) {
     exit(1);
   }
 
-  if(!kv_parse(data, profile, size)) {
+  if(!kv_parse((char *)data, profile, size)) {
     fprintf(stderr, "PE Invalid encrypted profile");
     exit(1);
   }
