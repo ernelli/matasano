@@ -3,6 +3,7 @@
 #include<string.h>
 #include<ctype.h>
 #include<sys/time.h>
+#include"tools.h"
 
 static char inttob64[64];
 static unsigned char b64toint[256];
@@ -468,7 +469,7 @@ void strip_terminate(char *data, int len) {
   }
 }
 
-int strip_padding(char *data, int len) {
+int strip_padding(unsigned char *data, int len) {
   int p;
 
   p = data[len-1];
@@ -896,6 +897,38 @@ void aes_ctr_encrypt(unsigned char *stream, int len, unsigned char *key, int key
   aes_ctr_decrypt(stream, len, key, key_len, nonce, block_lo, block_hi);
 }
 
+/////////////////////////////
+
+void mt19937_encrypt(unsigned char *data, int len, unsigned short key) {
+  struct MT_generator cipher;
+  int i;
+  
+  unsigned char stream[4];
+  
+  initialize_generator(&cipher, key);
+
+  while(len > 0) {
+    *(unsigned int *)&stream = extract_number(&cipher);
+
+    if(len >= 4) {
+      *data++ ^= stream[0];
+      *data++ ^= stream[1];
+      *data++ ^= stream[2];
+      *data++ ^= stream[3];
+    } else {
+      for(i = 0; i < len; i++) {
+	*data++ ^= stream[i];	
+      }
+    }
+    len -= 4;
+  }
+  
+}
+
+void mt19937_decrypt(unsigned char *data, int len, unsigned short key) {
+  mt19937_encrypt(data, len, key);
+}
+
 // AES in counter mode as pseudorandom source
 
 static unsigned char random_expanded_key[16*(14+1)];
@@ -1089,7 +1122,7 @@ void decrypt_profile(unsigned char *data, int len, char *profile, int size) {
     exit(1);
   }
 
-  if(!kv_parse((char *)data, profile, size)) {
+  if(!kv_parse((const char *)data, (char *)profile, size)) {
     fprintf(stderr, "PE Invalid encrypted profile");
     exit(1);
   }
@@ -1115,56 +1148,63 @@ int validate_padding(const unsigned char *data, int len) {
   return 1;
 }
 
-unsigned int MT_state[624];
-int MT_index = 0;
-
-void MT_initialize_generator(unsigned int seed) {
+void initialize_generator(struct MT_generator *gen, unsigned int seed) {
   int i;
 
-  MT_index = 0;
-  MT_state[0] = seed;
+  gen->index = 0;
+  gen->state[0] = seed;
   
   for(i = 1; i < 624; i++) { // loop over each other element
     //MT[i] := last 32 bits of(1812433253 * (MT[i-1] xor (right shift by 30 bits(MT[i-1]))) + i) // 0x6c078965
-    MT_state[i] = (unsigned int)(((MT_state[i-1] ^ (MT_state[i-1] >> 30) )) * 1812433253 + i);
+    gen->state[i] = (unsigned int)(((gen->state[i-1] ^ (gen->state[i-1] >> 30) )) * 1812433253 + i);
   }
+}
+void MT_initialize_generator(unsigned int seed) {
+  initialize_generator(&MT, seed);
 }
 
  // Generate an array of 624 untempered numbers
-void MT_generate_numbers() {
+void generate_numbers(struct MT_generator *gen) {
   int i;
   for( i = 0; i < 624; i++)  {
-    unsigned int y = (MT_state[i] & 0x80000000)                       // bit 31 (32nd bit) of MT[i]
-      | (MT_state[(i+1) % 624] & 0x7fffffff);   // bits 0-30 (first 31 bits) of MT[...]
+    unsigned int y = (gen->state[i] & 0x80000000)                       // bit 31 (32nd bit) of MT[i]
+      | (gen->state[(i+1) % 624] & 0x7fffffff);   // bits 0-30 (first 31 bits) of MT[...]
     
-    MT_state[i] = MT_state[(i + 397) % 624] ^ (y >> 1);
+    gen->state[i] = gen->state[(i + 397) % 624] ^ (y >> 1);
     if( (y & 1) != 0 ){ // y is odd
-      MT_state[i] = MT_state[i] ^ (2567483615);
+      gen->state[i] = gen->state[i] ^ (0x9908b0df); //2567483615
     }
   }
 }
 
  // Extract a tempered pseudorandom number based on the index-th value,
  // calling generate_numbers() every 624 numbers
-unsigned int MT_extract_number() {
-  if(MT_index == 0) {
-    MT_generate_numbers();
+
+
+unsigned int extract_number(struct MT_generator *gen) {
+  if(gen->index == 0) {
+    generate_numbers(gen);
   }
  
-  unsigned int y = MT_state[MT_index];
+  unsigned int y = gen->state[gen->index];
 
-  printf("untemp: %u\n", y);
+  //  printf("untemp: %u\n", y);
 
   y = y ^ (y >> 11);
-  y = y ^ ( (y << 7) & 2636928640); // 0x9d2c5680
-  y = y ^ ( (y << 15) & 4022730752); // 0xefc60000
+  y = y ^ ( (y << 7) & 0x9d2c5680); // 2636928640
+  y = y ^ ( (y << 15) & 0xefc60000); // 4022730752
   y = y ^ (y >> 18);
 
-  MT_index = (MT_index + 1) % 624;
+  gen->index = (gen->index + 1) % 624;
+
   return y;
 }
 
-unsigned int MT_reverse_number(unsigned int y) {
+unsigned int MT_extract_number() {
+  return extract_number(&MT);
+}
+
+unsigned int MT_untemper_number(unsigned int y) {
   // reverse y = y ^ (y >> 18)
   // y    aaaaaaaabbbbbbbbccccccccdddddddd
   // y18                    aaaaaaaabbbbbb
@@ -1247,10 +1287,10 @@ int add_userdata(const char *userdata, unsigned char *ciphertext, int bufflen) {
     ud_init = 1;
   }
 
-  strcpy(ciphertext, prefix);
+  strcpy((char *)ciphertext, prefix);
   
   s = userdata;
-  d = ciphertext + strlen(ciphertext);
+  d = (char *)ciphertext + strlen((char *)ciphertext);
 
   while(*s) {
     if(*s == ';' || *s == '=') {
@@ -1264,9 +1304,9 @@ int add_userdata(const char *userdata, unsigned char *ciphertext, int bufflen) {
   *d++ = '\0';
   
   // strcat(ciphertext, userdata);
-  strcat(ciphertext, postfix);
+  strcat((char *)ciphertext, postfix);
 
-  len = strlen(ciphertext);
+  len = strlen((char *)ciphertext);
   len = add_padding(ciphertext, len, 16);
 
   aes_cbc_encrypt(ciphertext, len, ud_key, sizeof(ud_key), ud_iv);
@@ -1275,7 +1315,7 @@ int add_userdata(const char *userdata, unsigned char *ciphertext, int bufflen) {
 }
 
 int is_user_admin(unsigned char *data, int len) {
-  char plaintext[1024];
+  unsigned char plaintext[1024];
 
   memcpy(plaintext, data, len);
 
@@ -1283,7 +1323,7 @@ int is_user_admin(unsigned char *data, int len) {
 
   if(validate_padding(plaintext, len)) {
     strip_padding(plaintext, len);
-    if(strstr(plaintext, ";admin=true;")) {
+    if(strstr((char *)plaintext, ";admin=true;")) {
       return 1;
     }
   }
