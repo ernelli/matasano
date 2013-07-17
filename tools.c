@@ -3,7 +3,6 @@
 #include<string.h>
 #include<ctype.h>
 #include<sys/time.h>
-
 #include"tools.h"
 
 static char inttob64[64];
