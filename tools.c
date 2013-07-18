@@ -3,6 +3,7 @@
 #include<string.h>
 #include<ctype.h>
 #include<sys/time.h>
+#include<time.h>
 #include"tools.h"
 
 static char inttob64[64];
@@ -929,6 +930,91 @@ void mt19937_decrypt(unsigned char *data, int len, unsigned short key) {
   mt19937_encrypt(data, len, key);
 }
 
+
+void generate_reset_token(char *token, int len) {
+  int now = time(NULL), bytecount;
+  unsigned char buffer[1024], *d; // largest token... e.g largest URL possible to handle
+  struct MT_generator gen;
+
+  bytecount = (len - 3) * 6 / 8;
+  if(bytecount > 1) {
+    if(bytecount + 4 > sizeof(buffer)) {
+      fprintf(stderr, "Too large reset token size requested: %d, max random bytes can be: %d\n", len, sizeof(buffer));
+      exit(1);
+    }
+    
+    initialize_generator(&gen, (unsigned int)now);
+    d = buffer;
+
+    while(bytecount > 0) {
+      *(unsigned int *)d = extract_number(&gen);
+      d += 4;
+      bytecount -= 4;
+
+    }
+
+    // adjust length
+    d += bytecount;
+
+    len = base64encode(buffer, d - buffer, token);
+    token[len] = '\0';
+  }
+}
+
+int validate_reset_token(char *token, int margin) {
+  int now = time(NULL), len, bytecount, n;
+  unsigned char buffer[1024], *d; // largest token... e.g largest URL possible to handle
+  unsigned char btoken[1024];
+  struct MT_generator gen;
+
+
+  if(margin > 600) {
+    fprintf(stderr, "Too large reset token time margin, max +/- 10 minutes");
+    exit(1);    
+  }
+
+  if(margin < 0) {
+    fprintf(stderr, "invalid time margin: %d\n", margin);
+    exit(1);    
+  }
+  
+  now -= margin;
+
+  margin *= 2;
+
+  len = strlen(token);
+
+  // reset token too large, invalid
+  if( (len * 6 / 8) > sizeof(btoken)) {
+    return 0;
+  }
+
+  bytecount = base64decode(token, len, btoken);
+
+  while(margin) {
+    initialize_generator(&gen, (unsigned int)now);    
+
+    d = buffer;
+    n = bytecount;
+
+    while(n > 0) {
+      *(unsigned int *)d = extract_number(&gen);
+      d += 4;
+      n -= 4;
+    }
+
+    if(!memcmp(buffer, btoken, bytecount)) {
+      return 1;
+    }
+    margin--;
+    now++;
+  }
+
+  // invalid token
+  return 0;
+}
+
+
 // AES in counter mode as pseudorandom source
 
 static unsigned char random_expanded_key[16*(14+1)];
@@ -1330,3 +1416,4 @@ int is_user_admin(unsigned char *data, int len) {
 
   return 0;
 }
+

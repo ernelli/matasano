@@ -1,10 +1,17 @@
 #include<stdio.h>
 #include<string.h>
+#include<signal.h>
 #include"tools.h"
+
+void SIGINT_handler() {
+  printf("interrupt sleep\n\n");
+}
 
 int main(int argc, char *argv[]) {
   int i, wait1, wait2, seed, start;
   unsigned int value;
+
+  signal(SIGINT, SIGINT_handler);
 
   if(argc < 2) {
     random_bytes((unsigned char *)&wait1, sizeof(wait1));
@@ -17,7 +24,9 @@ int main(int argc, char *argv[]) {
     
     printf("about to spend %d seconds running bad crypto code, OK?\n", wait1 + wait2);
     
-    sleep(wait1);
+    if(sleep(wait1)) {
+      printf("sleep was interrupted\n");
+    }
     
     seed = time(NULL);  
     FILE *fp = fopen("seed", "w");
@@ -28,7 +37,7 @@ int main(int argc, char *argv[]) {
     
     sleep(wait2);  
     
-    printf("%u\n", MT_extract_number());
+    printf("secret: %u\n", MT_extract_number());
   } else {
     sscanf(argv[1], "%u", &value);
     if(argc > 2)

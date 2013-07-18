@@ -86,4 +86,5 @@ int main(int argc, char *argv[]) {
   strip_padding(plaintext, len);
   printf("%s\n", plaintext);
 
+  return 0;
 }

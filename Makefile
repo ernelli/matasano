@@ -2,7 +2,7 @@ default: all
 
 all: tools.o test1 test2 test3 test4 test5 test6 test7 test7a test8 \
      test9 test10 test11 test12 test13 test14 test15 test16 \
-     test17 test18 test19 test20 test21 test22 test23 test24
+     test17 test18 test19 test20 test21 test22 test23 test24 test24b
 
 challenge1: base64.o rate.o test1 test2 test3 test4 test5 test6 test7 test8
 	@echo "// ------------------------------------------------------------\nrunning test1"
@@ -40,6 +40,25 @@ challenge2: base64.o rate.o test9 test10 test11 test12 test13 test14 test15 test
 	@echo "// ------------------------------------------------------------\nrunning test16"
 	@./test16
 
+challenge3: tools.o test17 test18 test19 test20 test21 test22 test23 test24 test24b
+	@echo "// ------------------------------------------------------------\nrunning test17"
+	@./test17
+	@echo "// ------------------------------------------------------------\nrunning test18"
+	@./test18
+	@echo "// ------------------------------------------------------------\nrunning test19"
+	@./test19
+	@echo "// ------------------------------------------------------------\nrunning test20"
+	@cat ./gistfile6.txt | ./test20
+	@echo "// ------------------------------------------------------------\nrunning test21"
+	@./test21
+	@echo "// ------------------------------------------------------------\nrunning test22 using a pregenerated random number, and start time"
+	@./test22 2418051504 1374175866
+	@echo "// ------------------------------------------------------------\nrunning test23"
+	@./test23
+	@echo "// ------------------------------------------------------------\nrunning test24a"
+	@./test24
+	@echo "// ------------------------------------------------------------\nrunning test24a"
+	@./test24b
 clean:
 	rm *.o
 
@@ -123,3 +142,6 @@ test23: test23.o tools.o
 
 test24: test24.o tools.o
 	gcc -o test24 test24.o tools.o
+
+test24b: test24b.o tools.o
+	gcc -o test24b test24b.o tools.o
