@@ -898,6 +898,10 @@ void aes_ctr_encrypt(unsigned char *stream, int len, unsigned char *key, int key
   aes_ctr_decrypt(stream, len, key, key_len, nonce, block_lo, block_hi);
 }
 
+void aes_ctr_edit(unsigned char *ciphertext, const unsigned char *key, int offset, const char *newtext) {
+
+}
+
 /////////////////////////////
 
 void mt19937_encrypt(unsigned char *data, int len, unsigned short key) {
