@@ -858,7 +858,7 @@ void aes_cbc_decrypt(unsigned char *block, int len, unsigned char *key, int key_
   }
 }
 
-void aes_ctr_decrypt(unsigned char *stream, int len, unsigned char *key, int key_len, unsigned char *nonce, unsigned int block_lo, unsigned int block_hi) {
+void aes_ctr_decrypt(unsigned char *stream, int len, const unsigned char *key, int key_len, unsigned char *nonce, unsigned int block_lo, unsigned int block_hi) {
   unsigned char expanded_key[16*(14+1)];
   int i, ks;
   unsigned char block[16];
@@ -894,12 +894,25 @@ void aes_ctr_decrypt(unsigned char *stream, int len, unsigned char *key, int key
   }
 }
 
-void aes_ctr_encrypt(unsigned char *stream, int len, unsigned char *key, int key_len, unsigned char *nonce, unsigned int block_lo, unsigned int block_hi) {
+void aes_ctr_encrypt(unsigned char *stream, int len, const unsigned char *key, int key_len, unsigned char *nonce, unsigned int block_lo, unsigned int block_hi) {
   aes_ctr_decrypt(stream, len, key, key_len, nonce, block_lo, block_hi);
 }
 
 void aes_ctr_edit(unsigned char *ciphertext, const unsigned char *key, int offset, const char *newtext) {
+  unsigned char nonce[8], lead[16];
+  int len, block, boffset;
 
+  memset(nonce, 0, sizeof(nonce));
+  len = strlen(newtext);
+  block = offset / 16;
+  boffset = offset % 16;
+
+  memcpy(lead, ciphertext+16*block, 16);
+  memcpy(ciphertext+offset, newtext, len);
+
+  aes_ctr_encrypt(ciphertext+offset-boffset, len+boffset, key, 16, nonce, block, 0);
+  memcpy(ciphertext+16*block, lead, boffset);
+  
 }
 
 /////////////////////////////
