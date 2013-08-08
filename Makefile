@@ -61,6 +61,10 @@ challenge3: tools.o test17 test18 test19 test20 test21 test22 test23 test24 test
 	@./test24
 	@echo "// ------------------------------------------------------------\nrunning test24a"
 	@./test24b
+
+challenge4: tools.o test25.o
+	cat gistfile3.txt | ./test25
+
 clean:
 	rm *.o
 
