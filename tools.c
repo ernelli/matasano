@@ -915,6 +915,162 @@ void aes_ctr_edit(unsigned char *ciphertext, const unsigned char *key, int offse
   
 }
 
+//////////////////////////
+
+/*
+SHA1("The quick brown fox jumps over the lazy dog")
+= 2fd4e1c6 7a2d28fc ed849ee1 bb76e739 1b93eb12
+Even a small change in the message will, with overwhelming probability, result in a completely different hash due to the avalanche effect. For example, changing dog to cog produces a hash with different values for 81 of the 160 bits:
+SHA1("The quick brown fox jumps over the lazy cog")
+= de9f2c7f d25e1b3a fad3e85a 0bd17d9b 100db4b3
+The hash of the zero-length string is:
+SHA1("")
+= da39a3ee 5e6b4b0d 3255bfef 95601890 afd80709
+
+*/
+
+// based on wikipedia pseudo code
+
+void SHA1(unsigned char *data, int len, unsigned char *digest) {
+  unsigned char buffer[32];
+  unsigned char padding[32];
+
+  unsigned int w[80];
+  unsigned int h[5];
+  unsigned int a, b, c, d, e, f, temp;
+  int i, append;
+
+  //Note 1: All variables are unsigned 32 bits and wrap modulo 2^32 when calculating
+  //Note 2: All constants in this pseudo code are in big endian.
+  //        Within each word, the most significant byte is stored in the leftmost byte position
+
+    //Initialize variables:
+
+  h[0] = 0x67452301;
+  h[1] = 0xEFCDAB89;
+  h[2] = 0x98BADCFE;
+  h[3] = 0x10325476;
+  h[4] = 0xC3D2E1F0;
+
+  memset(padding, 0, 32);
+  padding[0] = 0x80;
+  padding[31-len] = len & 0xff;
+
+  /*
+Pre-processing:
+append the bit '1' to the message
+append 0 ≤ k < 512 bits '0', so that the resulting message length (in bits)
+   is congruent to 448 (mod 512)
+append length of message (before pre-processing), in bits, as 64-bit big-endian integer
+
+Process the message in successive 512-bit chunks:
+  */
+
+  while(len > 0) {
+
+    if(len < 32) {
+      memcpy(buffer, data, len);
+      memcpy(buffer+len, padding, 32-len);
+    }
+
+    for(i = 0; i < 16; i++) {
+      w[i] = 
+        buffer[4*i]   << 24 |
+        buffer[4*i+1] << 16 |
+        buffer[4*i+2] <<  8 |
+        buffer[4*i+3];
+    }
+      
+    //break chunk into sixteen 32-bit big-endian words w[i], 0 ≤ i ≤ 15
+
+    //Extend the sixteen 32-bit words into eighty 32-bit words:
+    for( i = 16; i <  79; i++) {
+      w[i] = (w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16]);
+      w[i] = (w[i] << 1) | (w[i] >> 31);
+    }
+
+    //Initialize hash value for this chunk:
+    a = h[0];
+    b = h[1];
+    c = h[2];
+    d = h[3];
+    e = h[4];
+
+    for(i = 0; i < 20; i++) {
+      f = (b & c) | ((~b) & d);
+      //      k = 0x5A827999;
+
+      temp = ( (a << 5) | (a >> 27) ) + f + e + 0x5A827999 + w[i];
+      e = d;
+      d = c;
+      c = (b << 30) | (b >> 2);//b leftrotate 30
+      b = a;
+      a = temp;
+    }
+
+    for(i = 20; i < 40; i++) {
+      f = b ^ c ^ d;
+      //      k = 0x5A827999;
+
+      temp = ( (a << 5) | (a >> 27) ) + f + e + 0x6ED9EBA1 + w[i];
+      e = d;
+      d = c;
+      c = (b << 30) | (b >> 2);//b leftrotate 30
+      b = a;
+      a = temp;
+    }
+
+    for(i = 40; i < 60; i++) {
+      f = (b & c) | (b & d) | (c & d);
+      //      k = 0x5A827999;
+
+      temp = ( (a << 5) | (a >> 27) ) + f + e + 0x8F1BBCDC + w[i];
+      e = d;
+      d = c;
+      c = (b << 30) | (b >> 2);//b leftrotate 30
+      b = a;
+      a = temp;
+    }
+
+    for(i = 60; i < 80; i++) {
+      f = b ^ c ^ d;
+      //      k = 0x5A827999;
+
+      temp = ( (a << 5) | (a >> 27) ) + f + e + 0xCA62C1D6 + w[i];
+      e = d;
+      d = c;
+      c = (b << 30) | (b >> 2);//b leftrotate 30
+      b = a;
+      a = temp;
+    }
+
+    // Add this chunk's hash to result so far:
+    h[0] = h[0] + a;
+    h[1] = h[1] + b;
+    h[2] = h[2] + c;
+    h[3] = h[3] + d;
+    h[4] = h[4] + e;
+
+    len = len > 32 ? len - 32 : 0;
+  }
+//Produce the final hash value (big-endian):
+
+  //digest = hash = h0 append h1 append h2 append h3 append h4
+  
+  for(i = 0; i < 5; i++) {
+    digest[i*4] = (unsigned char)(h[i] >> 24);
+    digest[i*4+1] = (unsigned char)(h[i] >> 16);
+    digest[i*4+2] = (unsigned char)(h[i] >> 8);
+    digest[i*4+3] = (unsigned char)(h[i]);
+  }
+}
+
+
+
+
+
+
+
 /////////////////////////////
 
 void mt19937_encrypt(unsigned char *data, int len, unsigned short key) {
