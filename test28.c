@@ -1,10 +1,18 @@
+#include<stdio.h>
 
-void main() {
+#include"tools.h"
+
+int main(int argc, char *argv[]) {
+  unsigned char data[1024*1024];
   unsigned char digest[20];
+  int len;
 
-  memset(digest, 0, 20);
 
-  SHA1("hello i love you", 16, digest);
+  len = fread(data, 1, sizeof(data), stdin);
+
+  sha1(data, len, digest);
 
   hexdump(digest, 20);
+
+  return 0;
 }

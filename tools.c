@@ -931,14 +931,14 @@ SHA1("")
 
 // based on wikipedia pseudo code
 
-void SHA1(unsigned char *data, int len, unsigned char *digest) {
-  unsigned char buffer[32];
-  unsigned char padding[32];
+void sha1(unsigned char *data, int len, unsigned char *digest) {
+  unsigned char lastblock[64];
 
   unsigned int w[80];
   unsigned int h[5];
   unsigned int a, b, c, d, e, f, temp;
-  int i, append;
+  int i;
+  unsigned int bits;
 
   //Note 1: All variables are unsigned 32 bits and wrap modulo 2^32 when calculating
   //Note 2: All constants in this pseudo code are in big endian.
@@ -952,9 +952,18 @@ void SHA1(unsigned char *data, int len, unsigned char *digest) {
   h[3] = 0x10325476;
   h[4] = 0xC3D2E1F0;
 
-  memset(padding, 0, 32);
-  padding[0] = 0x80;
-  padding[31-len] = len & 0xff;
+  memset(lastblock, 0, 64);
+
+  i = len % 64;
+  memcpy(lastblock, data + len - i, i);
+  lastblock[i] = 0x80;
+
+  bits = len*8;
+
+  lastblock[60] = bits >> 24;
+  lastblock[61] = bits >> 16;
+  lastblock[62] = bits >> 8;
+  lastblock[63] = bits & 0xff;
 
   /*
 Pre-processing:
@@ -966,25 +975,23 @@ append length of message (before pre-processing), in bits, as 64-bit big-endian 
 Process the message in successive 512-bit chunks:
   */
 
-  while(len > 0) {
+  while(len >= 0) {
 
-    if(len < 32) {
-      memcpy(buffer, data, len);
-      memcpy(buffer+len, padding, 32-len);
+    if(len < 64) {
+      data = lastblock;
     }
 
+    //break chunk into sixteen 32-bit big-endian words w[i], 0 ≤ i ≤ 15
     for(i = 0; i < 16; i++) {
       w[i] = 
-        buffer[4*i]   << 24 |
-        buffer[4*i+1] << 16 |
-        buffer[4*i+2] <<  8 |
-        buffer[4*i+3];
+        data[4*i]   << 24 |
+        data[4*i+1] << 16 |
+        data[4*i+2] <<  8 |
+        data[4*i+3];
     }
-      
-    //break chunk into sixteen 32-bit big-endian words w[i], 0 ≤ i ≤ 15
 
     //Extend the sixteen 32-bit words into eighty 32-bit words:
-    for( i = 16; i <  79; i++) {
+    for( i = 16; i <  80; i++) {
       w[i] = (w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16]);
       w[i] = (w[i] << 1) | (w[i] >> 31);
     }
@@ -1051,7 +1058,8 @@ Process the message in successive 512-bit chunks:
     h[3] = h[3] + d;
     h[4] = h[4] + e;
 
-    len = len > 32 ? len - 32 : 0;
+    data += 64;
+    len -= 64;
   }
 //Produce the final hash value (big-endian):
 
