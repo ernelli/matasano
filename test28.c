@@ -3,6 +3,9 @@
 
 #include"tools.h"
 
+#define TEST_SHA1
+//#define TEST_MAC
+
 void test_sha1() {
   unsigned char digest[20];
   const char *s;
@@ -25,23 +28,23 @@ int main(int argc, char *argv[]) {
   unsigned char digest[20];
   int len;
 
-  //  test_sha1();
-  
-  /*
+#ifdef TEST_SHA1
+  test_sha1();
+#endif
+
+#ifdef TEST_MAC
   len = fread(data, 1, sizeof(data), stdin);
   sha1(data, len, digest);
   hexdump(digest, 20);
-  */
-
-  /*
-  char msg[200];
+ 
+   char msg[200];
   memset(msg, 'A', 199);
   msg[199] = '\0';
   char *key = "YELLOW SUBMARINEYELLOW SUBMARINEYELLOW SUBMARINEYELLOW SUBMARINEYELLOW SUBMARINE";
-  */
+
 
   validate_mac(msg, strlen(msg), key, strlen(key), digest);
-
+#endif
 
   return 0;
 }
