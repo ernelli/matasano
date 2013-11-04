@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 
     printf("revealed key: ");
     hexdump(revealed_key, 16);
-    printf("\n\n\plaintext\n");
+    printf("\n\n\nplaintext\n");
 
     aes_cbc_decrypt(ciphertext, len, revealed_key, 16, revealed_key);
 

@@ -491,7 +491,7 @@ int strip_padding(unsigned char *data, int len) {
 void hexdump(const unsigned char *data, int len) {
   int i;
   char line[60], *d;
-  int m;
+  int m = 0;
   char ascii[32];
 
   d = line;
@@ -1039,7 +1039,6 @@ void sha1_finish(unsigned char *lastdata, int len, unsigned int h[5], unsigned c
 
   printf("sha1_finish\n");
   hexdump(lastdata, len % 64);
-
 
   memset(lastblock, 0, 64);
 
