@@ -3,8 +3,8 @@
 
 #include"tools.h"
 
-#define TEST_SHA1
-//#define TEST_MAC
+//#define TEST_SHA1
+#define TEST_MAC
 
 void test_sha1() {
   unsigned char digest[20];
@@ -47,8 +47,10 @@ int main(int argc, char *argv[]) {
 
 
 
-  validate_mac(msg, strlen(msg), key, strlen(key), digest);
+  printf("mac valid: %d\n", validate_mac(msg, strlen(msg), key, strlen(key), digest));
 #endif
+
+
 
   return 0;
 }
