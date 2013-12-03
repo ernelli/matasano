@@ -934,8 +934,8 @@ void sha1_update(unsigned char *data, unsigned int h[5]) {
   unsigned int a, b, c, d, e, f, temp;
   int i;
 
-  printf("sha1_update\n");
-  hexdump(data, 64);
+  //printf("sha1_update\n");
+  //hexdump(data, 64);
 
   //Note 1: All variables are unsigned 32 bits and wrap modulo 2^32 when calculating
   //Note 2: All constants in this pseudo code are in big endian.
@@ -1037,8 +1037,8 @@ void sha1_finish(unsigned char *lastdata, int len, unsigned int h[5], unsigned c
   unsigned int bits;
   int i;
 
-  printf("sha1_finish\n");
-  hexdump(lastdata, len % 64);
+  //printf("sha1_finish\n");
+  //hexdump(lastdata, len % 64);
 
   memset(lastblock, 0, 64);
 
@@ -1221,9 +1221,9 @@ Process the message in successive 512-bit chunks:
 
 /////////////////////////////
 
-int validate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_len, unsigned char *mac) {
+void  generate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_len, unsigned char *mac) {
   unsigned int h[5];
-  unsigned char digest[20];
+
   unsigned char buffer[64];
 
   int i = 0;
@@ -1255,11 +1255,13 @@ int validate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_le
     memcpy(buffer + i, msg, msg_len);
   }
 
-  sha1_finish(buffer, len, h, digest);
+  sha1_finish(buffer, len, h, mac);
+}
 
-  printf("digest\n");
-  hexdump(digest, 20);
-
+int validate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_len, unsigned char *mac) {
+  unsigned char digest[20];
+  
+  generate_mac(msg, msg_len, key, key_len, digest);
   return !memcmp(mac, digest, 20);
 }
 

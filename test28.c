@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 #ifdef TEST_MAC
   len = fread(data, 1, sizeof(data), stdin);
   sha1(data, len, digest);
-  hexdump(digest, 20);
+  //hexdump(digest, 20);
  
    char msg[200];
   memset(msg, 'A', 199);
