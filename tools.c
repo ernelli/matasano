@@ -1056,6 +1056,8 @@ void sha1_finish(unsigned char *lastdata, int len, unsigned int h[5], unsigned c
   sha1_update(lastblock, h);
 
   for(i = 0; i < 5; i++) {
+    //printf("generated digest out of h[%d] = %08X\n", i, h[i]);
+
     digest[i*4] = (unsigned char)(h[i] >> 24);
     digest[i*4+1] = (unsigned char)(h[i] >> 16);
     digest[i*4+2] = (unsigned char)(h[i] >> 8);

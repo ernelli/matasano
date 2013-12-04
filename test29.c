@@ -37,7 +37,6 @@ int main(int argc, char *argv[]) {
 
   init_key();
 
-
   generate_mac(data, strlen(data), secret_key, secret_key_len, mac);
   hexencode(mac, 20, buff);
   buff[40] = '\0';
@@ -46,6 +45,22 @@ int main(int argc, char *argv[]) {
   strcpy(tamp, data);
   strcat(tamp, ";admin=true");
   printf("tampered msg mac valid: %d\n", validate_mac(tamp, strlen(tamp), secret_key, secret_key_len, mac));
-  
+
+  // now try to bruteforce a valid message by continuing the existing mac.
+  //
+  // mac is based on sha1(key || msg) which is based on (key || msg || padding)
+
+  // we want sha1(key || msg || padding || tampering) to be valid, for
+  // that we need to guess padding length and append tampering and continue
+  // the sha1 hash function
+
+  // the sha1 state we will continue on
+  unsigned int h[5];
+  int i;
+  for(i = 0; i < 5; i++) {
+    h[i] = (mac[i*4] << 24) | (mac[i*4+1] << 16) | (mac[i*4+2] << 8) | mac[i*4+3];
+    printf("h[%d] = %08X\n", i, h[i]);
+  } 
+
   return 0;
 }
