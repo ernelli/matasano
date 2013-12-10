@@ -3,8 +3,8 @@
 
 #include"tools.h"
 
-//#define TEST_SHA1
-#define TEST_MAC
+#define TEST_SHA1
+//#define TEST_MAC
 
 void test_sha1() {
   unsigned char digest[20];
@@ -24,6 +24,10 @@ void test_sha1() {
   sha1("", 0, digest); hexdump(digest, 20);
   printf("0000: da 39 a3 ee 5e 6b 4b 0d 32 55 bf ef 95 60 18 90 af d8 07 09\n");
 
+  //  const char *s0 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const char *s0 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+  //const char *s0 = "AA";
+  sha1(s0, strlen(s0), digest); printf("63A\n"); hexdump(digest, 20);
 }
 
 int main(int argc, char *argv[]) {
