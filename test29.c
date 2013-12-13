@@ -32,7 +32,7 @@ void generate_mac(const char *data, const char *key, unsigned char *mac) {
 int main(int argc, char *argv[]) {
   unsigned char mac[20];
   char buff[128];
-  char tamp[2048];
+  unsigned char tamp[2048];
   const char *data = "comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
 
   init_key();
@@ -48,12 +48,13 @@ int main(int argc, char *argv[]) {
 
   // now try to bruteforce a valid message by continuing the existing mac.
   //
-  // mac is based on sha1(key || msg) which is based on (key || msg || padding)
+  // valid mac is based on sha1(key || msg) which is based on (key || msg || padding0)
 
-  // we want sha1(key || msg || padding || tampering) to be valid, for
-  // that we need to guess padding length and append tampering and continue
+  // we want sha1(key || msg || padding0 || tampering || padding1) to be valid, 
+  // for that we need to guess key length and append tampering and continue
   // the sha1 hash function over padding and tampering.
 
+  // 
   
   // padding = | 0x80 0000 ... 0000 LEN | where 
   // 
@@ -63,7 +64,7 @@ int main(int argc, char *argv[]) {
   unsigned char tampmac[20];
 
   int msglen = strlen(data);
-  int keylen = 0; // start with a zero length key  
+  int keylen = secret_key_len; // start with a zero length key  
   int valid;
 
   do {
@@ -79,49 +80,72 @@ int main(int argc, char *argv[]) {
 
   strcpy(tamp, ";admin=true");
 
+  int key_data_padding0_len =  ((keylen + msglen + 9) + 64 - (keylen + msglen + 9) % 64);
+  int tamp_len = strlen(tamp);
+
   // the length of the tampered message, that is msglen + keylen + padding + tamp
-  int tamplen = ((msglen + keylen) + 512 - (msglen + keylen) % 512) + strlen(tamp);
 
   // calculate tampered mac
-  sha1_finish(tamp, tamplen, h, tampmac);
+  printf("-----------------------------------\ngenerating tampered mac using total length: %d, key_data_padding: %d\n", key_data_padding0_len + tamp_len, key_data_padding0_len);
+
+  sha1_finish(tamp, key_data_padding0_len + tamp_len, h, tampmac);
   printf("tampered mac:\n");
   hexdump(tampmac, 20);
   
-  // generate tampered message, that is, original message + padding + tampered data
+  // generate tampered message, that is, original message + padding0 + tampered data
   strcpy(tamp, data);
+
+  // append padding0 after original message
+  
   unsigned char *p = tamp+msglen;
+
   *p++ = 0x80;
-  while( (p - (unsigned char *)tamp) % 512 != 448) {
+  // nullpadd until 8 bytes from block boundary
+  while( (p - (unsigned char *)tamp) % 64 != 56) {
     *p++ = 0;
   }
 
+  // first 32 bits of 64 bit length indicator is zero
   *p++ = 0;
   *p++ = 0;
   *p++ = 0;
   *p++ = 0;
   
   unsigned int bits = 8*(msglen + keylen);
-  
+
+  // append the 32 bit length field
   *p++ = bits >> 24;
   *p++ = bits >> 16;
   *p++ = bits >> 8;
   *p++ = bits & 0xff;
 
+  // append tampering
   strcpy(p, ";admin=true");
+  p += strlen(p);
 
-  printf("Validate mac using length: %d\n", tamplen);
-  hexdump(tamp, tamplen);
+  int tampered_msg_len = p - tamp;
 
-  valid = validate_mac(tamp, tamplen, secret_key, secret_key_len, tampmac);
+  printf("Validate mac using length: %d\n", tampered_msg_len);
+  hexdump(tamp, tampered_msg_len);
+
+  printf("-----------------------------------\nValidate tampered mac with length: %d\n", tampered_msg_len);
+  valid = validate_mac(tamp, tampered_msg_len, secret_key, secret_key_len, tampmac);
 
   if(!valid) {
     keylen++;
     printf("Message not accepted, try larger keylength %d\n", keylen);
+  } else {
+    printf("tampered message accepted, guessed keylength: %d\n", keylen);
   }
 
-  } while(!valid && keylen < 16);  
+  break;
 
-  printf("tampered message accepted, guessed keylength: %d\n", keylen);
+  } while(!valid && keylen < 2);  
+
+
+  if(!valid) {
+    printf("Failed to get tampered message accepted\n");
+  }
 
   return 0;
 }
