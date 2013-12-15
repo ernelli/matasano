@@ -1037,8 +1037,8 @@ void sha1_finish(unsigned char *lastdata, int len, unsigned int h[5], unsigned c
   unsigned int bits;
   int i;
 
-  printf("sha1_finish, len mod: %d\n", len % 64);
-  hexdump(lastdata, len % 64);
+  //printf("sha1_finish, len mod: %d\n", len % 64);
+  //hexdump(lastdata, len % 64);
 
   memset(lastblock, 0, 64);
 
@@ -1053,7 +1053,7 @@ void sha1_finish(unsigned char *lastdata, int len, unsigned int h[5], unsigned c
     memset(lastblock, 0, 64);
   }
 
-  printf("store bits: %u\n", bits);
+  //printf("store bits: %u\n", bits);
 
   lastblock[60] = bits >> 24;
   lastblock[61] = bits >> 16;
