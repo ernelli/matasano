@@ -22,6 +22,22 @@ void aes_ecb_decrypt(unsigned char *block, int len, unsigned char *key, int key_
 void aes_cbc_encrypt(unsigned char *block, int len, unsigned char *key, int key_len, unsigned char *iv);
 void aes_cbc_decrypt(unsigned char *block, int len, unsigned char *key, int key_len, unsigned char *iv);
 
+// aes/sha1
+struct dgst_alg {
+  void (*init )(unsigned int *);
+  void (*update )(const unsigned char *, unsigned int *);
+  void (*finish )(const unsigned char *, int , unsigned int *, unsigned char *);
+  int dgst_length;
+};
+
+extern struct dgst_alg *MD4;
+extern struct dgst_alg *SHA1;
+
+void  generate_mac(struct dgst_alg *alg, const unsigned char *msg, int msg_len, const unsigned char *key, int key_len, unsigned char *mac);
+int validate_mac(struct dgst_alg *alg, const unsigned char *msg, int msg_len, const unsigned char *key, int key_len, const unsigned char *mac);
+
+//
+
 void mt19937_encrypt(unsigned char *data, int len, unsigned short key);
 void mt19937_decrypt(unsigned char *data, int len, unsigned short key);
 

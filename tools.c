@@ -935,7 +935,7 @@ void sha1_init(unsigned int h[5]) {
 
 }
 
-void sha1_update(unsigned char *data, unsigned int h[5]) {
+void sha1_update(const unsigned char *data, unsigned int h[5]) {
   unsigned int w[80];
 
   unsigned int a, b, c, d, e, f, temp;
@@ -1039,7 +1039,7 @@ Process the message in successive 512-bit chunks:
     h[4] = h[4] + e;
 } 
 
-void sha1_finish(unsigned char *lastdata, int len, unsigned int h[5], unsigned char *digest) {
+void sha1_finish(const unsigned char *lastdata, int len, unsigned int h[5], unsigned char *digest) {
   unsigned char lastblock[64];
   unsigned int bits;
   int i;
@@ -1093,6 +1093,7 @@ void sha1(unsigned char *data, int len, unsigned char *digest) {
   sha1_finish(data + i, len, h, digest);
 }
 
+// reference implementation
 void _sha1(unsigned char *data, int len, unsigned char *digest) {
   unsigned char lastblock[64];
 
@@ -1247,10 +1248,115 @@ Process the message in successive 512-bit chunks:
 #define ROUND2(a, b, c, d, k, s)  a = ROTL( a + G(b,c,d) + X[k] + 0x5A827999,s) 
 #define ROUND3(a, b, c, d, k, s)  a = ROTL( a + H(b,c,d) + X[k] + 0x6ED9EBA1,s) 
 
+void md4_init(unsigned int h[4]) {
+  h[0] = bswap(0x01234567);
+  h[1] = bswap(0x89abcdef);
+  h[2] = bswap(0xfedcba98);
+  h[3] = bswap(0x76543210);
+}
+
+void md4_update(const unsigned char *data, unsigned int h[4]) {
+    unsigned int *M;
+    unsigned int X[16];
+    unsigned int AA, BB, CC, DD;
+    unsigned int A, B, C, D;
+    int j;
+
+    M = (unsigned int *)data;
+    
+    // copy data into X
+    for(j = 0; j < 16; j++) {
+      X[j] = M[j];
+    }
+
+    A = h[0];
+    B = h[1];
+    C = h[2];
+    D = h[3];
+    
+    AA = A;
+    BB = B;
+    CC = C;
+    DD = D;
+
+    /* ROUND1 */
+    ROUND1( A,B,C,D,  0,  3 ); ROUND1( D,A,B,C,  1,  7 ); ROUND1( C,D,A,B,  2, 11 ); ROUND1( B,C,D,A,  3, 19 ); 
+    ROUND1( A,B,C,D,  4,  3 ); ROUND1( D,A,B,C,  5,  7 ); ROUND1( C,D,A,B,  6, 11 ); ROUND1( B,C,D,A,  7, 19 ); 
+    ROUND1( A,B,C,D,  8,  3 ); ROUND1( D,A,B,C,  9,  7 ); ROUND1( C,D,A,B, 10, 11 ); ROUND1( B,C,D,A, 11, 19 ); 
+    ROUND1( A,B,C,D, 12,  3 ); ROUND1( D,A,B,C, 13,  7 ); ROUND1( C,D,A,B, 14, 11 ); ROUND1( B,C,D,A, 15, 19 ); 
+
+    /* ROUND2 */
+    ROUND2( A,B,C,D,  0,  3 ); ROUND2( D,A,B,C,  4,  5 ); ROUND2( C,D,A,B,  8,  9 ); ROUND2( B,C,D,A, 12, 13 ); 
+    ROUND2( A,B,C,D,  1,  3 ); ROUND2( D,A,B,C,  5,  5 ); ROUND2( C,D,A,B,  9,  9 ); ROUND2( B,C,D,A, 13, 13 ); 
+    ROUND2( A,B,C,D,  2,  3 ); ROUND2( D,A,B,C,  6,  5 ); ROUND2( C,D,A,B, 10,  9 ); ROUND2( B,C,D,A, 14, 13 ); 
+    ROUND2( A,B,C,D,  3,  3 ); ROUND2( D,A,B,C,  7,  5 ); ROUND2( C,D,A,B, 11,  9 ); ROUND2( B,C,D,A, 15, 13 ); 
+
+    /* ROUND3 */
+    ROUND3( A,B,C,D,  0,  3 ); ROUND3( D,A,B,C,  8,  9 ); ROUND3( C,D,A,B,  4, 11 ); ROUND3( B,C,D,A, 12, 15 ); 
+    ROUND3( A,B,C,D,  2,  3 ); ROUND3( D,A,B,C, 10,  9 ); ROUND3( C,D,A,B,  6, 11 ); ROUND3( B,C,D,A, 14, 15 ); 
+    ROUND3( A,B,C,D,  1,  3 ); ROUND3( D,A,B,C,  9,  9 ); ROUND3( C,D,A,B,  5, 11 ); ROUND3( B,C,D,A, 13, 15 ); 
+    ROUND3( A,B,C,D,  3,  3 ); ROUND3( D,A,B,C, 11,  9 ); ROUND3( C,D,A,B,  7, 11 ); ROUND3( B,C,D,A, 15, 15 ); 
+    
+    h[0] = AA + A;
+    h[1] = BB + B;
+    h[2] = CC + C;
+    h[3] = DD + D;
+}
+
+void md4_finish(const unsigned char *lastdata, int len, unsigned int h[4], unsigned char *digest) {
+  unsigned char lastblock[64];
+  unsigned int bits;
+  int i;
+
+  //printf("sha1_finish, len mod: %d\n", len % 64);
+  //hexdump(lastdata, len % 64);
+
+  memset(lastblock, 0, 64);
+
+  i = len % 64;
+  memcpy(lastblock, lastdata, i);
+  lastblock[i] = 0x80;
+
+  bits = len*8;
+
+  if(i >= 56) {
+    md4_update(lastblock, h);
+    memset(lastblock, 0, 64);
+  }
+
+  //printf("store bits: %u\n", bits);
+  lastblock[56] = bits & 0xff;
+  lastblock[57] = bits >> 8;
+  lastblock[58] = bits >> 16;
+  lastblock[59] = bits >> 24;
+
+  md4_update(lastblock, h);
+
+  *(unsigned int *)(digest +  0) = h[0];
+  *(unsigned int *)(digest +  4) = h[1];
+  *(unsigned int *)(digest +  8) = h[2];
+  *(unsigned int *)(digest + 12) = h[3];
+}
+
+void md4(unsigned char *data, int len, unsigned char *digest) {
+  unsigned int h[4];
+
+  int i = 0;
+
+  md4_init(h);
+
+  while(i + 64 < len) {
+    md4_update(data+i, h);
+    i += 64;
+  }
+
+  md4_finish(data + i, len, h, digest);
+}
+
 void _md4(unsigned char *data, int len, unsigned char *digest) {
   unsigned char lastblock[64];
 
-  int N, i, j, bits;
+  int i, j, bits;
   unsigned int A, B, C, D;
   unsigned int AA, BB, CC, DD;
 
@@ -1328,9 +1434,25 @@ void _md4(unsigned char *data, int len, unsigned char *digest) {
   *(unsigned int *)(digest + 12) = D;
 }
 
-/////////////////////////////
 
-void  generate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_len, unsigned char *mac) {
+struct dgst_alg _MD4 = {
+  md4_init,
+  md4_update,
+  md4_finish,
+  16
+};
+
+struct dgst_alg _SHA1 = {
+  sha1_init,
+  sha1_update,
+  sha1_finish,
+  20
+};
+
+struct dgst_alg *MD4 = &_MD4;
+struct dgst_alg *SHA1 = &_SHA1;
+
+void  generate_mac(struct dgst_alg *alg, const unsigned char *msg, int msg_len, const unsigned char *key, int key_len, unsigned char *mac) {
   unsigned int h[5];
 
   unsigned char buffer[64];
@@ -1339,11 +1461,13 @@ void  generate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_
 
   int len = key_len + msg_len;
 
-  sha1_init(h);
+  alg->init(h);
+  //sha1_init(h);
 
   // deal with keys longer than 512 bits
   while(i + 64 < key_len) {
-    sha1_update(key+i, h);
+    alg->update(key+i, h);
+    //sha1_update(key+i, h);
     i += 64;
   }
 
@@ -1354,9 +1478,13 @@ void  generate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_
     memcpy(buffer + i, msg, 64 - i);
     i = 64 - i;
 
-    sha1_update(buffer, h);
+    alg->update(buffer, h);
+    //sha1_update(buffer, h);
+
     while(i + 64 < msg_len) {
-      sha1_update(msg+i, h);
+      alg->update(msg+i, h);
+      //sha1_update(msg+i, h);
+
       i += 64;
     }
     memcpy(buffer, msg+i, msg_len - i);
@@ -1364,14 +1492,15 @@ void  generate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_
     memcpy(buffer + i, msg, msg_len);
   }
 
-  sha1_finish(buffer, len, h, mac);
+  alg->finish(buffer, len, h, mac);
+  //sha1_finish(buffer, len, h, mac);
 }
 
-int validate_mac(unsigned char *msg, int msg_len, unsigned char *key, int key_len, unsigned char *mac) {
+int validate_mac(struct dgst_alg *alg, const unsigned char *msg, int msg_len, const unsigned char *key, int key_len, const unsigned char *mac) {
   unsigned char digest[20];
   
-  generate_mac(msg, msg_len, key, key_len, digest);
-  return !memcmp(mac, digest, 20);
+  generate_mac(alg, msg, msg_len, key, key_len, digest);
+  return !memcmp(mac, digest, alg->dgst_length);
 }
 
 

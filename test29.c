@@ -37,14 +37,14 @@ int main(int argc, char *argv[]) {
 
   init_key();
 
-  generate_mac(data, strlen(data), secret_key, secret_key_len, mac);
+  generate_mac(SHA1, data, strlen(data), secret_key, secret_key_len, mac);
   hexencode(mac, 20, buff);
   buff[40] = '\0';
   printf("digest: %s\n", buff);
-  printf("mac valid: %d\n", validate_mac(data, strlen(data), secret_key, secret_key_len, mac));
+  printf("mac valid: %d\n", validate_mac(SHA1, data, strlen(data), secret_key, secret_key_len, mac));
   strcpy(tamp, data);
   strcat(tamp, ";admin=true");
-  printf("tampered msg mac valid: %d\n", validate_mac(tamp, strlen(tamp), secret_key, secret_key_len, mac));
+  printf("tampered msg mac valid: %d\n", validate_mac(SHA1, tamp, strlen(tamp), secret_key, secret_key_len, mac));
 
   // now try to bruteforce a valid message by continuing the existing mac.
   //
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     //printf("Validate mac using length: %d\n", tampered_msg_len);
     //hexdump(tamp, tampered_msg_len);
 
-    valid = validate_mac(tamp, tampered_msg_len, secret_key, secret_key_len, tampmac);
+    valid = validate_mac(SHA1, tamp, tampered_msg_len, secret_key, secret_key_len, tampmac);
 
     if(!valid) {
       keylen++;
@@ -156,6 +156,4 @@ int main(int argc, char *argv[]) {
   if(!valid) {
     printf("Failed to get tampered message accepted\n");
   }
-
-  return 0;
 }
