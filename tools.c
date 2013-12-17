@@ -6,6 +6,13 @@
 #include<time.h>
 #include"tools.h"
 
+//ABCD
+//DCBA
+
+unsigned int bswap(unsigned int n) {
+  return (n >> 24) | (n << 24) | ( (n & 0xff0000) >> 8) | ( (n & 0xff00) << 8);
+}
+
 static char inttob64[64];
 static unsigned char b64toint[256];
 
@@ -1225,6 +1232,43 @@ Process the message in successive 512-bit chunks:
     digest[i*4+1] = (unsigned char)(h[i] >> 16);
     digest[i*4+2] = (unsigned char)(h[i] >> 8);
     digest[i*4+3] = (unsigned char)(h[i]);
+  }
+}
+
+void _md4(unsigned char *data, int len, unsigned char *digest) {
+  unsigned char lastblock[64];
+
+  int bits;
+  unsigned int i, A, B, C, D;
+
+  memset(lastblock, 0, 64);
+
+  i = len % 64;
+  memcpy(lastblock, data + len - i, i);
+  lastblock[i] = 0x80;
+
+  bits = len*8;
+
+  lastblock[60] = bits >> 24;
+  lastblock[61] = bits >> 16;
+  lastblock[62] = bits >> 8;
+  lastblock[63] = bits & 0xff;
+
+  A = bswap(0x01234567);
+  B = bswap(0x89abcdef);
+  C = bswap(0xfedcba98);
+  D = bswap(0x76543210);
+
+  printf("A: %08X\nB: %08X\nC: %08X\nD: %08X\n", A, B, C, D);
+
+  while(len >= 0) {
+
+    if(len < 64) {
+      data = lastblock;
+    }
+
+    data += 64;
+    len -= 64;
   }
 }
 
