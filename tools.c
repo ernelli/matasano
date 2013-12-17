@@ -1235,11 +1235,27 @@ Process the message in successive 512-bit chunks:
   }
 }
 
+// md4 as described in rfc1320
+
+#define F(X,Y,Z) ( (X & Y) | (~X & Z) )
+#define G(X,Y,Z) ( (X & Y) | (X & Z) | (Y & Z) )
+#define H(X,Y,Z) ( X ^ Y ^ Z )
+
+#define ROTL(x,n) ( ( (x) << n) | ( (x) >> (32-n) ) )
+
+#define ROUND1(a, b, c, d, k, s)  a = ROTL( a + F(b,c,d) + X[k],s) 
+#define ROUND2(a, b, c, d, k, s)  a = ROTL( a + G(b,c,d) + X[k] + 0x5A827999,s) 
+#define ROUND3(a, b, c, d, k, s)  a = ROTL( a + H(b,c,d) + X[k] + 0x6ED9EBA1,s) 
+
 void _md4(unsigned char *data, int len, unsigned char *digest) {
   unsigned char lastblock[64];
 
-  int bits;
-  unsigned int i, A, B, C, D;
+  int N, i, j, bits;
+  unsigned int A, B, C, D;
+  unsigned int AA, BB, CC, DD;
+
+  unsigned int *M;
+  unsigned int X[16];
 
   memset(lastblock, 0, 64);
 
@@ -1249,27 +1265,67 @@ void _md4(unsigned char *data, int len, unsigned char *digest) {
 
   bits = len*8;
 
-  lastblock[60] = bits >> 24;
-  lastblock[61] = bits >> 16;
-  lastblock[62] = bits >> 8;
-  lastblock[63] = bits & 0xff;
+  lastblock[56] = bits & 0xff;
+  lastblock[57] = bits >> 8;
+  lastblock[58] = bits >> 16;
+  lastblock[59] = bits >> 24;
 
   A = bswap(0x01234567);
   B = bswap(0x89abcdef);
   C = bswap(0xfedcba98);
   D = bswap(0x76543210);
 
-  printf("A: %08X\nB: %08X\nC: %08X\nD: %08X\n", A, B, C, D);
+  //printf("A: %08X\nB: %08X\nC: %08X\nD: %08X\n", A, B, C, D);
 
   while(len >= 0) {
-
+    
     if(len < 64) {
       data = lastblock;
     }
+    
+    M = (unsigned int *)data;
+    
+    // copy data into X
+    for(j = 0; j < 16; j++) {
+      X[j] = M[j];
+    }
+    
+    AA = A;
+    BB = B;
+    CC = C;
+    DD = D;
+
+    /* ROUND1 */
+    ROUND1( A,B,C,D,  0,  3 ); ROUND1( D,A,B,C,  1,  7 ); ROUND1( C,D,A,B,  2, 11 ); ROUND1( B,C,D,A,  3, 19 ); 
+    ROUND1( A,B,C,D,  4,  3 ); ROUND1( D,A,B,C,  5,  7 ); ROUND1( C,D,A,B,  6, 11 ); ROUND1( B,C,D,A,  7, 19 ); 
+    ROUND1( A,B,C,D,  8,  3 ); ROUND1( D,A,B,C,  9,  7 ); ROUND1( C,D,A,B, 10, 11 ); ROUND1( B,C,D,A, 11, 19 ); 
+    ROUND1( A,B,C,D, 12,  3 ); ROUND1( D,A,B,C, 13,  7 ); ROUND1( C,D,A,B, 14, 11 ); ROUND1( B,C,D,A, 15, 19 ); 
+
+    /* ROUND2 */
+    ROUND2( A,B,C,D,  0,  3 ); ROUND2( D,A,B,C,  4,  5 ); ROUND2( C,D,A,B,  8,  9 ); ROUND2( B,C,D,A, 12, 13 ); 
+    ROUND2( A,B,C,D,  1,  3 ); ROUND2( D,A,B,C,  5,  5 ); ROUND2( C,D,A,B,  9,  9 ); ROUND2( B,C,D,A, 13, 13 ); 
+    ROUND2( A,B,C,D,  2,  3 ); ROUND2( D,A,B,C,  6,  5 ); ROUND2( C,D,A,B, 10,  9 ); ROUND2( B,C,D,A, 14, 13 ); 
+    ROUND2( A,B,C,D,  3,  3 ); ROUND2( D,A,B,C,  7,  5 ); ROUND2( C,D,A,B, 11,  9 ); ROUND2( B,C,D,A, 15, 13 ); 
+
+    /* ROUND3 */
+    ROUND3( A,B,C,D,  0,  3 ); ROUND3( D,A,B,C,  8,  9 ); ROUND3( C,D,A,B,  4, 11 ); ROUND3( B,C,D,A, 12, 15 ); 
+    ROUND3( A,B,C,D,  2,  3 ); ROUND3( D,A,B,C, 10,  9 ); ROUND3( C,D,A,B,  6, 11 ); ROUND3( B,C,D,A, 14, 15 ); 
+    ROUND3( A,B,C,D,  1,  3 ); ROUND3( D,A,B,C,  9,  9 ); ROUND3( C,D,A,B,  5, 11 ); ROUND3( B,C,D,A, 13, 15 ); 
+    ROUND3( A,B,C,D,  3,  3 ); ROUND3( D,A,B,C, 11,  9 ); ROUND3( C,D,A,B,  7, 11 ); ROUND3( B,C,D,A, 15, 15 ); 
+    
+    A = AA + A;
+    B = BB + B;
+    C = CC + C;
+    D = DD + D;
 
     data += 64;
     len -= 64;
   }
+
+  *(unsigned int *)(digest +  0) = A;
+  *(unsigned int *)(digest +  4) = B;
+  *(unsigned int *)(digest +  8) = C;
+  *(unsigned int *)(digest + 12) = D;
 }
 
 /////////////////////////////
