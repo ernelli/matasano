@@ -52,7 +52,7 @@ function insecure_compare(str1, str2, cb) {
         if(n < str1.length && n < str2.length) {
             if(str1[n] === str2[n]) {
                 n++;
-                setTimeout(nextchar, 50); 
+                setTimeout(nextchar, 10); 
             } else {
                 cb(false);
             }
@@ -75,6 +75,8 @@ crypto.randomBytes(32, function(err, key) {
 
 // example http://localhost:9000/test?file=foo&signature=46b4ec586117154dacd49d664e5d63fdc88efb51
 
+    var logged = false;
+
     server = http.createServer(function(request, response) {
         var hmac;
         //console.log("got request: ");
@@ -85,7 +87,7 @@ crypto.randomBytes(32, function(err, key) {
         
         if(parts.pathname === '/test') {
             var params = query.parse(parts.query);
-            console.log("params: ", params);
+            //console.log("params: ", params);
 
             if(params.file && params.signature) {
 
@@ -97,6 +99,10 @@ crypto.randomBytes(32, function(err, key) {
                         response.write('OK');
                         response.end();
                     } else {
+                        if(!logged) {
+                            logged = true;
+                            console.log("invalid signature, did not match: " + hmac.toString('hex'));
+                        }
                         response.writeHead(500);
                         response.write("Invalid signature");
                         response.end();
