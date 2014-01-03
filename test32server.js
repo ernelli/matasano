@@ -64,7 +64,7 @@ function insecure_compare(str1, str2, cb) {
             return;
         }
         
-        for(m = 1; m < 100; m++) {
+        for(m = 1; m < 60; m++) {
             s += 1E6 / m;
         }
         

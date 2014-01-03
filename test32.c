@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
       host = argv[2];
     }
 
-    int i = 0;
+    int i,j;
 
 
     int buckets[16];
@@ -184,18 +184,44 @@ int main(int argc, char *argv[]) {
 
     memset(buckets, 0, sizeof(buckets));
 
-    while(i < 20) {
+    int n = 0;
+    
+    int round = 0;
+
+    while(n < 20) {
 
       double latency, min_latency = 0, max_latency = 0, avg_latency = 0;
       double data[256];
       int byte_max = 0;
 
-      hmac[i] = 0;
+      hmac[n] = 0;
 
       int nibble = 0;
+      int permute[16];
 
-      do {
-        hmac[i] = nibble << 4;
+      int j;
+
+      for(j = 0; j < 16; j++) {
+        permute[j] = j;
+      }
+
+      for(i = 15; i > 1; i--) {
+        j = rand() % (i+1);
+        int tmp = permute[i];
+        permute[i] = permute[j];
+        permute[j] = tmp;
+      }
+
+      /*
+      for(i = 0; i < 16; i++) {
+        printf("%d ", permute[i]);
+      }
+      printf("\n");
+      */
+      for(nibble = 0; nibble < 16; nibble++) {
+        int test_val = permute[nibble];
+        
+        hmac[n] = test_val << 4;
 
         char url[256];
         sprintf(url, "http://%s:9000/test?file=%s&signature=%08x%08x%08x%08x%08x", host, file, bswap(hmacint[0]), bswap(hmacint[1]), bswap(hmacint[2]), bswap(hmacint[3]), bswap(hmacint[4]));
@@ -209,18 +235,19 @@ int main(int argc, char *argv[]) {
           break;
         }
         
-        data[nibble] = latency;
+        data[test_val] = latency;
 
         avg_latency += latency;
         
-        if(!hmac[i]) {
+        if(nibble == 0) {
           max_latency = latency;
           min_latency = latency;
+          byte_max = hmac[n];
         }
         
         if(latency > max_latency) {
           max_latency = latency;
-          byte_max = hmac[i];
+          byte_max = hmac[n];
         }
         
         if(latency < min_latency) {
@@ -228,14 +255,11 @@ int main(int argc, char *argv[]) {
         }
         
         //printf("latency: %.6f\n", latency / 1E9);
-        
-        nibble++;
+      }
 
-      } while(nibble < 16);
+      round++;
 
       avg_latency = 0;
-
-      int j;
 
       for(j = 0; j < 16; j++) {
         //        if(j != byte_max) {
@@ -267,8 +291,8 @@ int main(int argc, char *argv[]) {
         }
 
 
-        if(last_max_i != max_i) {
-          printf("min_latency: %.6f, max_latency: %.6f, avg: %.6f, var: %.6f, byteval: %02x, B: ", min_latency / 1E9, max_latency / 1E9, avg_latency / 1E9, var_latency / 1E9, byte_max);
+        if(last_max_i != max_i || (round && round % 1000 == 0)) {
+          printf("R: %d, min: %.6f, max: %.6f, avg: %.6f, var: %.6f, byteval: %02x, B: ", round, min_latency / 1E9, max_latency / 1E9, avg_latency / 1E9, var_latency / 1E9, byte_max);
           for(j = 0; j < 16; j++) {
             if(j == max_i) {
               printf("[%2d]", buckets[j]);
@@ -287,7 +311,7 @@ int main(int argc, char *argv[]) {
 
 
       
-      //i++;
+      //n++;
     }
   }
 
