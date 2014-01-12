@@ -167,6 +167,14 @@ int main(int argc, char *argv[]) {
   unsigned char hmac[20];
   unsigned int *hmacint = (unsigned int *)hmac;
   const char *host = "localhost";
+  
+  struct timespec resolution;
+
+  //clock_getres(CLOCK_REALTIME, &resolution);
+  //printf("CLOCK_REALTIME resolution: %d ns\n", (int)resolution.tv_nsec);
+  //clock_getres(CLOCK_PROCESS_CPUTIME_ID, &resolution);
+  //printf("CLOCK_PROCESS_CPUTIME_ID resolution: %d ns\n", (int)resolution.tv_nsec);
+
 
   memset(hmac, 0, 20);
 
