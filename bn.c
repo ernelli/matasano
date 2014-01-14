@@ -573,6 +573,72 @@ void bignum_mul(struct bignum *a, struct bignum *b) {
   bignum_free(part);
 }
 
+#if 1
+void bignum_div(struct bignum *n, struct bignum *d, struct bignum **_q, struct bignum **_r) {
+  int M = bignum_msb(n);
+  int ls = M - bignum_msb(d);
+
+  /*
+  printf("dividend: "); bignum_print_hex(a); printf("\n");
+  printf(" divisor: "); bignum_print_hex(b); printf("\n");
+
+  printf("msb a: %d\n", bignum_msb(n));
+  printf("msb b: %d\n", bignum_msb(d));
+  */
+
+  // if b is larger than a, then a cannot be divided by b.
+  if(ls <= 0) {
+    *_q = bignum_create();
+    *_r = bignum_copy(n);
+    //bignum_set_i32(q,0);
+    printf("bignum_div returns, not divide\n");
+    return;
+  }
+
+  struct bignum *q = bignum_alloc(2 + ls/32);
+  memset(q->num, 0, q->size*sizeof(int));
+  struct bignum *r = bignum_alloc(1 + d->n);
+
+  int m;
+  
+  for(m = M-1; m >= 0; m--) {
+    bignum_shift_l(r, 1);
+    r->num[0] |= (n->num[m / 32] >> (m % 32)) & 0x1;
+
+    //printf("reminder: "); bignum_print_hex(r); printf("\n");
+    //printf("dividend: "); bignum_print_hex(d); printf("\n");
+
+    if(bignum_cmp_unsigned(r, d) >= 0) {
+      bignum_sub_unsigned(r,d);
+
+      if(m/32 >= q->size) {
+        printf("error q size overflow\n");
+        exit(1);
+      }
+      q->num[m/32] |= 0x1 << (m % 32);
+    }
+  }
+
+
+  m = q->size -1;
+
+  while(m > 0 && !q->num[m]) {
+    m--;
+  }
+  q->n = 1+m;
+
+  q->sign = n->sign * d->sign;
+  r->sign = n->sign;
+
+  //printf("divide done; reminder: "); bignum_print_hex(r); printf("\n");
+  //printf("reminder: %08p\n", r);
+
+  *_q = q;
+  *_r = r;
+}
+
+#else
+
 void bignum_div(struct bignum *a, struct bignum *b, struct bignum **_q, struct bignum **_r) {
   int ls = bignum_msb(a) - bignum_msb(b);
 
@@ -649,6 +715,7 @@ void bignum_div(struct bignum *a, struct bignum *b, struct bignum **_q, struct b
   *_r = r;
   bignum_free(b);
 }
+#endif
 
 void bignum_add_u32(struct bignum *a, unsigned int val)
 {
