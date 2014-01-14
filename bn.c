@@ -20,7 +20,9 @@ struct bignum
 
 void bignum_print(struct bignum *a);
 void bignum_print_hex(struct bignum *a);
+void bignum_print_parts(struct bignum *a);
 void bignum_mul_u32(struct bignum *a, unsigned b);
+void bignum_mul(struct bignum *a, struct bignum *b);
 
 struct bignum * bignum_clear(struct bignum *a)
 {
@@ -40,6 +42,26 @@ int bignum_is_zero(struct bignum *a)
     return 0;
 }
 
+int bignum_msb(struct bignum *a) {
+  int n = a->n - 1;
+
+  while(n >= 0 && !a->num[n]) {
+    n--;
+  }
+
+  unsigned int x = a->num[n];  
+
+  // courtsey of Sir Slick, http://stackoverflow.com/a/10273678/141349
+  static const unsigned int bval[] =
+    {0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4};
+  
+  unsigned int r = 0;
+  if (x & 0xFFFF0000) { r += 16/1; x >>= 16/1; }
+  if (x & 0x0000FF00) { r += 16/2; x >>= 16/2; }
+  if (x & 0x000000F0) { r += 16/4; x >>= 16/4; }
+  
+  return n*32 + r + bval[x];
+}
 
 struct bignum * bignum_alloc(int size)
 {
@@ -171,6 +193,63 @@ void bignum_neg_unsigned(struct bignum *a)
   a->n = n; // Which happends when we negate 0.
 }
 
+void bignum_shift_r(struct bignum *a, int s) {
+  unsigned int c, c0;
+  int offset = s / 32;
+  int sr = s % 32;
+  int sl = 32 - sr;
+
+  int n = a->n-1;
+
+  unsigned int mask = 0xffffffff >> sr;
+
+  if(offset) {
+    fprintf(stderr, "bignum_shift_r: shifts > 31 bits not supported yet");
+    exit(1);
+  }
+
+  c = 0;
+  while(n >= 0) {
+    c0 = a->num[n] & mask;
+    a->num[n] = (a->num[n] >> sr) | c << sl;
+    n--;
+    c = c0;
+  }
+
+}
+
+void bignum_shift_l(struct bignum *a, int s) {
+  unsigned int c, c0;
+  int offset = s / 32;
+  int sl = s % 32;
+  int sr = 32 - sl;
+
+  int n = 0;
+
+  unsigned int mask = 0xffffffff << sr;
+
+  if(offset) {
+    fprintf(stderr, "bignum_shift_r: shifts > 31 bits not supported yet");
+    exit(1);
+  }
+
+  c = 0;
+  while(n < a->n) {
+    c0 = a->num[n] & mask;
+    a->num[n] = (a->num[n] << sl) | c >> sr;
+    n++;
+    c = c0;
+  }
+
+  if(c) {
+    if(a->size < n) {
+      bignum_resize(a, n+1);      
+    }
+    a->num[n] = c >> sr;
+    a->n = n+1;
+  }
+}
+
 void bignum_sub_unsigned(struct bignum *a, struct bignum *b)
 {
   int n;
@@ -201,10 +280,57 @@ void bignum_sub_unsigned(struct bignum *a, struct bignum *b)
 
       if(a->num[n] == 0xffffffff)
 	c = 1;
+      else
+        c = 0;
 
       n++;
     }
 
+}
+
+void bignum_sub_unsigned_shifted(struct bignum *a, struct bignum *b, int sl)
+{
+  int n;
+  
+  unsigned int c = 0;
+
+  // calculate b << sl
+  b = bignum_copy(b);
+  struct bignum *sh = bignum_alloc(1 + sl / 32);
+  sh->n = sl / 32;
+  memset(sh->num, 0, sizeof(sh->num)*sh->n);
+  sh->num[sh->n] = 0x1 << sl % 32;
+  bignum_mul(b, sh);
+  bignum_free(sh);
+
+  if(a->size < (b->n+1))
+    bignum_resize(a, b->n+1);
+
+  for(n = 0; n < b->n; n++)
+    {
+      unsigned int c0 = c;
+
+      c = 0;
+
+      unsigned int r = a->num[n] - b->num[n];
+      if(r > a->num[n])
+	c = 1;
+      r = r - c0;
+      if(r > a->num[n])
+	c = 1;
+      a->num[n] = r;
+    }
+
+  while(c && a->n > n)
+    {
+      a->num[n] -= c;
+
+      if(a->num[n] == 0xffffffff)
+	c = 1;
+
+      n++;
+    }
+  bignum_free(b);
 }
 
 void bignum_add_unsigned(struct bignum *a, struct bignum *b)
@@ -447,6 +573,83 @@ void bignum_mul(struct bignum *a, struct bignum *b) {
   bignum_free(part);
 }
 
+void bignum_div(struct bignum *a, struct bignum *b, struct bignum **_q, struct bignum **_r) {
+  int ls = bignum_msb(a) - bignum_msb(b);
+
+  /*
+  printf("dividend: "); bignum_print_hex(a); printf("\n");
+  printf(" divisor: "); bignum_print_hex(b); printf("\n");
+
+  printf("msb a: %d\n", bignum_msb(a));
+  printf("msb b: %d\n", bignum_msb(b));
+  */
+  struct bignum *r = bignum_copy(a);
+
+  // if b is larger than a, then a cannot be divided by b.
+  if(ls <= 0) {
+    *_q = bignum_create();
+    //bignum_set_i32(q,0);
+    printf("bignum_div returns, not divide\n");
+    return;
+  }
+
+
+  //allocate quotient and reminder
+  struct bignum *q = bignum_alloc(1 + ls/32);
+  
+  // calculate b << ls
+  b = bignum_copy(b);
+  struct bignum *c = bignum_alloc(1 + ls / 32);
+  c->n = 1 + (ls) / 32;
+  memset(c->num, 0, sizeof(c->num)*c->n);
+  c->num[c->n - 1] = 0x1 << (ls) % 32;
+  //  printf("multiply shift: "); bignum_print_hex(c); printf("\n");
+  bignum_mul(b, c);
+  bignum_free(c);
+
+  int rn = r->n;
+  
+  while(ls >= 0) {
+    //printf("reminder: "); bignum_print_hex(r); printf("\n");
+    //printf("sub part: "); bignum_print_hex(b); printf("\n");
+
+    //bignum_sub_unsigned_shifted(r, b, ls);
+
+    bignum_sub_unsigned(r, b);
+
+    //bignum_shift_l(q, 1);
+
+    if(r->num[r->n-1] & 0x80000000) { // overflow
+      bignum_add_unsigned(r, b); // restore
+      r->n = rn;
+      //      printf(" restore: "); bignum_print_hex(r); printf("\n");
+    } else {
+      //q->num[0] |= 1;
+
+      q->num[ ls / 32] |= 0x1 << (ls % 32);
+
+    }
+    bignum_shift_r(b,1);
+    ls--;
+  }
+
+  int n = 2 + ls / 32;
+  while(n >= 0 && !q->num[n]) {
+    n--;
+  }
+  q->n = 1+n;
+
+  q->sign = a->sign * b->sign;
+  r->sign = a->sign;
+
+  //printf("divide done; reminder: "); bignum_print_hex(r); printf("\n");
+  //printf("reminder: %08p\n", r);
+
+  *_q = q;
+  *_r = r;
+  bignum_free(b);
+}
+
 void bignum_add_u32(struct bignum *a, unsigned int val)
 {
   int n;
@@ -605,6 +808,14 @@ void bignum_print_hex(struct bignum *a) {
   int i;
 
   for(i = a->n - 1; i >= 0; i--) {
+    printf("%08x ", a->num[i]);
+  }
+}
+
+void bignum_print_parts(struct bignum *a) {
+  int i;
+
+  for(i = a->n - 1; i >= 0; i--) {
     printf("%10u ", a->num[i]);
   }
 }
@@ -638,6 +849,18 @@ int main(int argc, char *argv[]) {
     bignum_mul(a,b);
     //printf("a*b: "); 
     bignum_print(a); printf("\n");
+    
+    struct bignum *q;
+    struct bignum *r;
+
+    bignum_div(a,b, &q, &r);
+
+    printf("quotient\n");
+    bignum_print(q);
+    printf("\nreminder\n");
+    bignum_print(r);
+    printf("\n");
+
   } else {
     a->n = a->size;
     random_bytes((unsigned char *)a->num, a->n*4);
@@ -661,6 +884,28 @@ int main(int argc, char *argv[]) {
     bignum_print(a); printf("\n");
     */
   }
+
+  /*
+  printf("testing shift right\n");
+  memset(a->num,0, 32*sizeof(int));
+  a->n = 4;
+  a->num[a->n-1] = 0xaa550123;
+
+  for(i = 0; i < 10; i++) {
+    bignum_print_hex(a); printf("\n");
+    bignum_shift_r(a,1);
+  }
+  */
+
+  /*
+  printf("testing shift left\n");
+  bignum_set_i32(a, 0xaa55);
+
+  for(i = 0; i < 40; i++) {
+    bignum_print_hex(a); printf("\n");
+    bignum_shift_l(a,3);
+  }
+  */
 
   return 0;
 }
