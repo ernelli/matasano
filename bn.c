@@ -215,7 +215,10 @@ void bignum_shift_r(struct bignum *a, int s) {
     n--;
     c = c0;
   }
-
+  if(!a->num[a->n-1]) {
+    if(a->n > 1) 
+      a->n--;
+  }
 }
 
 void bignum_shift_l(struct bignum *a, int s) {
@@ -426,6 +429,36 @@ void bignum_add_unsigned_shifted(struct bignum *a, struct bignum *b, int sl)
 
 }
 
+//unsigned compare
+int bignum_cmp_i32(struct bignum *a, int b) {
+  unsigned int val;
+  int sign;
+
+  if(b < 0) {
+    sign = -1;
+  } else {
+    sign = 1;
+  }
+
+  if(a->sign != sign) {
+    return a->sign;
+  }
+
+  if(a->n == 1) {
+    if(a->num[0] & 0x80000000) {
+      return 1;
+    } else {
+      //      printf("compare, sub: %d from %d\n", 
+      return a->sign*(int)a->num[0] - b < 0 ? -1 : (int)a->num[0] == b ? 0 : 1;
+    }
+  } else {
+    if(a->n >= 2) {
+      return 1;
+    } else {
+      return -sign;
+    }
+  }
+}
 
 //unsigned compare
 int bignum_cmp_unsigned(struct bignum *a, struct bignum *b)
@@ -588,8 +621,10 @@ void bignum_div(struct bignum *n, struct bignum *d, struct bignum **_q, struct b
 
   // if b is larger than a, then a cannot be divided by b.
   if(ls <= 0) {
-    *_q = bignum_create();
-    *_r = bignum_copy(n);
+    if(_q)
+      *_q = bignum_create();
+    if(_r)
+      *_r = bignum_copy(n);
     //bignum_set_i32(q,0);
     printf("bignum_div returns, not divide\n");
     return;
@@ -633,8 +668,18 @@ void bignum_div(struct bignum *n, struct bignum *d, struct bignum **_q, struct b
   //printf("divide done; reminder: "); bignum_print_hex(r); printf("\n");
   //printf("reminder: %08p\n", r);
 
-  *_q = q;
-  *_r = r;
+  if(_q) {
+    *_q = q;
+  } else {
+    bignum_free(q);
+  }
+
+  if(_r) {
+    *_r = r;
+  } else {
+    bignum_free(r);
+  }
+
 }
 
 #else
@@ -833,6 +878,60 @@ unsigned int bignum_div_i32(struct bignum *a, int b)
   return (unsigned)r;
 }
 
+// calculate a^b mod m
+
+#if 0
+function a_pow_b_mod_m(a,b,m) {
+  var r;
+
+  if(b == 1) {
+      return a;
+  }
+
+  if(b & 1) {
+      return (a*a_pow_b_mod_m(a,b-1,m)) % m;
+  } else {
+      r = a_pow_b_mod_m(a,b/2,m);
+      return (r*r) % m;
+  }
+}
+#endif
+
+// calculate a^b mod m
+
+void bignum_pow_mod(struct bignum *a, struct bignum *b, struct bignum *m, struct bignum *r) {
+  //  ;
+
+  if(bignum_cmp_i32(b,1) == 0) {
+    bignum_assign(r,a); //return a;
+    return;
+  }
+
+  struct bignum *_r = bignum_alloc(a->size);
+  struct bignum *_b = bignum_copy(b);
+
+
+  // odd
+  if(b->num[0] & 1) { 
+
+    _b->num[0] &= ~1;
+    bignum_pow_mod(a, _b, m, _r);
+    bignum_mul(_r, a);
+    bignum_div(_r, m, NULL, &_r);
+    bignum_assign(r, _r);
+
+    //return (a*a_pow_b_mod_m(a,b-1,m)) % m;
+  } else {
+    bignum_shift_r(_b, 1);
+    bignum_pow_mod(a, _b, m, _r);
+    bignum_mul(_r, _r);
+    bignum_div(_r, m, NULL, &_r);    
+    bignum_assign(r, _r);
+  }
+
+  bignum_free(_r);
+  bignum_free(_b);
+}
 
 
 void bignum_print(struct bignum *a)
@@ -893,6 +992,16 @@ void bignum_parse(struct bignum *a, unsigned char *str) {
   while(*str && isdigit(*str)) {
     bignum_mul_u32(a,10);
     bignum_add_u32(a, *str - '0');
+    str++;
+  }
+}
+
+void bignum_parse_hex(struct bignum *a, unsigned char *str) {
+  bignum_set_i32(a, 0);
+
+  while(*str && isxdigit(*str)) {
+    bignum_shift_l(a,4);
+    bignum_add_u32(a, *str <= '9' ? *str - '0' : *str <= 'F' ? 10 + *str - 'A' : 10 + *str - 'a');
     str++;
   }
 }
@@ -973,6 +1082,29 @@ int main(int argc, char *argv[]) {
     bignum_shift_l(a,3);
   }
   */
+
+  printf("testing rsa\n");
+  struct bignum *p = bignum_alloc(16);
+  bignum_parse(p, "12345678901234567890123456789012345678901234567890");
+  struct bignum *m = bignum_alloc(40);
+  bignum_parse_hex(m, "c353e5b1bc104f25f9df7715756ad817ff1df367cfd8888f713f2a23bcf549108c782858baeded2124bedfc185744794694d8b2e80e247936644109d5de50661");
+  struct bignum *d = bignum_alloc(20);
+  bignum_parse_hex(d, "83f913a0dae84a11e69a4de379ca0ee767bfdccdaf69261b84f0a0903503a5b11208db28fa99df73e6743096af1e4e34de982b6567fa4df1b573188c6ff4a361");
+  struct bignum *e = bignum_create_i32(65537);
+  
+  struct bignum *c = bignum_alloc(40);
+  struct bignum *dp = bignum_alloc(40);
+
+  printf("m: "); bignum_print_hex(m); printf("\n");
+  printf("e: "); bignum_print_hex(e); printf("\n");
+  printf("d: "); bignum_print_hex(d); printf("\n");
+
+  bignum_pow_mod(p, e, m, c);
+  printf("encrypted data\n");
+  bignum_print_hex(c); printf("\n");
+  bignum_pow_mod(c, d, m, dp);
+  printf("decrypted data\n");
+  bignum_print(dp); printf("\n");
 
   return 0;
 }
