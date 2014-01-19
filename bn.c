@@ -626,7 +626,7 @@ void bignum_div(struct bignum *n, struct bignum *d, struct bignum **_q, struct b
     if(_r)
       *_r = bignum_copy(n);
     //bignum_set_i32(q,0);
-    printf("bignum_div returns, not divide\n");
+    //printf("bignum_div returns, not divide\n");
     return;
   }
 
@@ -1016,6 +1016,7 @@ int main(int argc, char *argv[]) {
   struct bignum *a = bignum_alloc(128);
   struct bignum *b = bignum_alloc(128);
 
+#if 0
   if(argc >= 3) {
     bignum_parse(a, argv[1]);
     bignum_parse(b, argv[2]);
@@ -1060,7 +1061,7 @@ int main(int argc, char *argv[]) {
     bignum_print(a); printf("\n");
     */
   }
-
+#endif
   /*
   printf("testing shift right\n");
   memset(a->num,0, 32*sizeof(int));
@@ -1083,6 +1084,7 @@ int main(int argc, char *argv[]) {
   }
   */
 
+  /*
   printf("testing rsa\n");
   struct bignum *p = bignum_alloc(16);
   bignum_parse(p, "12345678901234567890123456789012345678901234567890");
@@ -1105,6 +1107,44 @@ int main(int argc, char *argv[]) {
   bignum_pow_mod(c, d, m, dp);
   printf("decrypted data\n");
   bignum_print(dp); printf("\n");
+  */
+
+  printf("testing dh\n");
+
+  struct bignum *p = bignum_alloc(48);
+  bignum_parse_hex(p, "ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f24117c4b1fe649286651ece45b3dc2007cb8a163bf0598da48361c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552bb9ed529077096966d670c354e4abc9804f1746c08ca237327ffffffffffffffff");
+  struct bignum *g = bignum_create_i32(2);
+  
+  // generate two big random numbers
+  //struct bignum *a = bignum_alloc(32);
+  a->n = 4;
+  random_bytes((unsigned char *)a->num, 32*sizeof(unsigned));
+  printf("a: "); bignum_print_hex(a); printf("\n");
+
+  //struct bignum *b = bignum_alloc(32);
+  b->n = 4;
+  random_bytes((unsigned char *)b->num, 32*sizeof(unsigned));
+  printf("b: "); bignum_print_hex(b); printf("\n");
+
+  struct bignum *A = bignum_alloc(48);
+  struct bignum *B = bignum_alloc(48);
+
+  struct bignum *s = bignum_alloc(48);
+
+  printf("calculate g^a mod p\n");
+  printf("g: "); bignum_print_hex(g); printf("\n");
+  printf("p: "); bignum_print_hex(p); printf("\n");
+
+  bignum_pow_mod(g, a, p, A);
+  printf("calculate g^b mod p\n");
+  fflush(stdout);
+  bignum_pow_mod(g, b, p, B);
+
+  bignum_pow_mod(B, a, p, s);
+  printf("Alices session key: "); bignum_print_hex(s); printf("\n");
+
+  bignum_pow_mod(A, b, p, s);
+  printf("  Bobs session key: "); bignum_print_hex(s); printf("\n");
 
   return 0;
 }
