@@ -1,5 +1,5 @@
 #ifndef TOOLS_H
-#define TOOLS_64_H
+#define TOOLS_H
 
 int base64encode(const unsigned char *s, int len, char *d);
 int base64decode(const char *s, int len, unsigned char *d);

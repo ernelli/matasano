@@ -3,26 +3,12 @@
 #include<malloc.h>
 #include<stdarg.h>
 #include<stdlib.h>
-
+#include"bn.h"
 #include"tools.h"
 
 #define USE_BIGNUM
 //#define DEBUG 
-#define TEST_BIGNUM
-
-struct bignum
-{
-  int size;
-  int n;
-  int sign;
-  unsigned int *num;
-};
-
-void bignum_print(struct bignum *a);
-void bignum_print_hex(struct bignum *a);
-void bignum_print_parts(struct bignum *a);
-void bignum_mul_u32(struct bignum *a, unsigned b);
-void bignum_mul(struct bignum *a, struct bignum *b);
+//#define TEST_BIGNUM
 
 struct bignum * bignum_clear(struct bignum *a)
 {

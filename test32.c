@@ -160,6 +160,7 @@ int http_get(const char *url, char *entity_body, int len, double *latency) {
   return status_code;
 }
 
+#define N_STAT 1000
 
 int main(int argc, char *argv[]) {
   char body[4096];
@@ -169,6 +170,9 @@ int main(int argc, char *argv[]) {
   const char *host = "localhost";
   
   struct timespec resolution;
+
+  static double long_stat[N_STAT*16];
+  int long_index = 0;
 
   //clock_getres(CLOCK_REALTIME, &resolution);
   //printf("CLOCK_REALTIME resolution: %d ns\n", (int)resolution.tv_nsec);
@@ -266,6 +270,24 @@ int main(int argc, char *argv[]) {
       }
 
       round++;
+
+      for(j = 0; j < 16; j++) {
+        long_stat[long_index++] = data[j];
+      }
+
+      if(long_index >= N_STAT*16) {
+        char filename[64];
+        sprintf(filename, "stat%d.txt", round);
+        printf("saving stat %s\n", filename);
+        FILE *fstat = fopen(filename, "w");
+        for(j = 0; j < N_STAT*16; j++) {
+          fprintf(fstat, "%f\n", long_stat[j]);
+        }
+        fclose(fstat);
+        long_index = 0;
+      }
+
+
 
       avg_latency = 0;
 
